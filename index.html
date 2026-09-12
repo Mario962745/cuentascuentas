@@ -1,0 +1,2157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Cuentas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root{
+    --bg:#FBF5F6;
+    --surface:#FFFFFF;
+    --surface-2:#FDF4F5;
+    --ink:#241A1C;
+    --ink-soft:#6B5458;
+    --ink-faint:#9C8589;
+    --line:#F0DEE1;
+    --line-soft:#F7EBEC;
+    --accent:#FF5566;
+    --accent-ink:#FFFFFF;
+    --accent-soft:#FFEBED;
+    --accent-soft-line:#FFC4C9;
+    --cxc-text:#B23B47;
+    --cxc-soft:#FFEBED;
+    --cxp-text:#994C5C;
+    --cxp-soft:#FFECF0;
+    --warn-text:#85505D;
+    --warn-soft:#FFEDF1;
+    --danger:#B83D49;
+    --danger-soft:#F6E8E9;
+    --focus:#FF5566;
+    --shadow: 0 1px 2px rgba(36,26,28,0.07), 0 8px 24px rgba(36,26,28,0.10);
+  }
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark){
+      --bg:#170F11; --surface:#241619; --surface-2:#2A1A1D;
+      --ink:#F5E7E9; --ink-soft:#C9A9AE; --ink-faint:#8F6B70;
+      --line:#3D262A; --line-soft:#331F22;
+      --accent:#FF7F99; --accent-ink:#241619;
+      --accent-soft:#4C2B30; --accent-soft-line:#8A4854;
+      --cxc-text:#FFA6BF; --cxc-soft:#4C2B30;
+      --cxp-text:#FF99B2; --cxp-soft:#48282D;
+      --warn-text:#FFA6BF; --warn-soft:#482E33;
+      --danger:#FF8A93; --danger-soft:#421D1F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#170F11; --surface:#241619; --surface-2:#2A1A1D;
+    --ink:#F5E7E9; --ink-soft:#C9A9AE; --ink-faint:#8F6B70;
+    --line:#3D262A; --line-soft:#331F22;
+    --accent:#FF7F99; --accent-ink:#241619;
+    --accent-soft:#4C2B30; --accent-soft-line:#8A4854;
+    --cxc-text:#FFA6BF; --cxc-soft:#4C2B30;
+    --cxp-text:#FF99B2; --cxp-soft:#48282D;
+    --warn-text:#FFA6BF; --warn-soft:#482E33;
+    --danger:#FF8A93; --danger-soft:#421D1F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans', -apple-system, sans-serif;
+    font-size:14px; line-height:1.5; min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'IBM Plex Mono', 'SFMono-Regular', monospace; letter-spacing:-0.01em;}
+  ::selection{background:var(--accent-soft);}
+  button{font-family:inherit;}
+  :focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+
+  .auth-wrap{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .auth-card{width:100%; max-width:380px; background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:28px 26px; box-shadow:var(--shadow);}
+  .auth-brand{font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; margin-bottom:2px; color:var(--accent);}
+  .auth-sub{color:var(--ink-soft); font-size:13px; margin-bottom:20px;}
+  .auth-tabs{display:flex; gap:4px; margin-bottom:18px; background:var(--surface-2); border-radius:8px; padding:3px;}
+  .auth-tab{flex:1; text-align:center; padding:7px; border-radius:6px; font-size:13px; font-weight:500; color:var(--ink-soft); cursor:pointer; border:none; background:none;}
+  .auth-tab.active{background:var(--surface); color:var(--ink); box-shadow:var(--shadow);}
+  .auth-error{background:var(--danger-soft); color:var(--danger); font-size:12.5px; padding:9px 11px; border-radius:8px; margin-bottom:14px;}
+  .auth-ok{background:var(--accent-soft); color:var(--cxc-text); font-size:12.5px; padding:9px 11px; border-radius:8px; margin-bottom:14px;}
+
+  #app{display:flex; min-height:100vh;}
+  .sidebar{width:236px; flex:none; background:var(--surface); border-right:1px solid var(--line); display:flex; flex-direction:column; padding:20px 14px; position:sticky; top:0; height:100vh;}
+  .brand{font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:17px; color:var(--accent); padding:4px 10px 4px; display:flex; align-items:baseline; gap:8px;}
+  .brand small{font-family:'IBM Plex Sans',sans-serif; font-weight:500; font-size:11px; color:var(--ink-faint);}
+  .nav{margin-top:22px; display:flex; flex-direction:column; gap:2px;}
+  .nav-item{display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:7px; color:var(--ink-soft); cursor:pointer; font-size:13.5px; font-weight:500; border:1px solid transparent; background:none; text-align:left; width:100%;}
+  .nav-item svg{flex:none; opacity:0.85;}
+  .nav-item:hover{background:var(--surface-2); color:var(--ink);}
+  .nav-item.active{background:var(--accent-soft); color:var(--accent); border-color:var(--accent-soft-line);}
+  .nav-count{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink-faint); background:var(--surface-2); border-radius:5px; padding:1px 6px;}
+  .nav-item.active .nav-count{color:var(--accent); background:var(--surface);}
+  .nav-sep{height:1px; background:var(--line-soft); margin:10px 4px;}
+  .sidebar-foot{margin-top:auto; padding:10px; font-size:12px; color:var(--ink-soft); border-top:1px solid var(--line-soft); padding-top:14px; display:flex; flex-direction:column; gap:8px;}
+  .sidebar-foot .who{display:flex; flex-direction:column; gap:1px;}
+  .sidebar-foot .who b{font-size:12.5px; color:var(--ink); font-weight:600; word-break:break-all;}
+  .sidebar-foot .who span{font-size:11px; color:var(--ink-faint);}
+  .role-badge{display:inline-block; font-size:10.5px; font-weight:600; padding:1px 7px; border-radius:20px; background:var(--accent-soft); color:var(--accent); margin-top:3px; width:fit-content;}
+
+  .main{flex:1; min-width:0; padding:28px 34px 60px;}
+  .topbar{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:22px; flex-wrap:wrap;}
+  .topbar h1{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:600; margin:0 0 4px; letter-spacing:-0.01em;}
+  .topbar p{margin:0; color:var(--ink-soft); font-size:13px; max-width:56ch;}
+  .topbar-actions{display:flex; gap:8px; flex-wrap:wrap; position:relative;}
+
+  .btn{display:inline-flex; align-items:center; gap:7px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:8px 13px; font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap;}
+  .btn:hover{background:var(--surface-2);}
+  .btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  .btn-primary:hover{filter:brightness(1.05);}
+  .btn-block{width:100%; justify-content:center;}
+  .btn-ghost{border-color:transparent; background:transparent;}
+  .btn-ghost:hover{background:var(--surface-2);}
+  .btn:disabled{opacity:0.45; cursor:not-allowed;}
+  .icon-btn{display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:6px; border:1px solid transparent; background:transparent; color:var(--ink-soft); cursor:pointer;}
+  .icon-btn:hover{background:var(--surface-2); color:var(--ink);}
+  .icon-btn.danger:hover{background:var(--danger-soft); color:var(--danger);}
+
+  .dropdown{position:absolute; top:calc(100% + 6px); right:0; background:var(--surface); border:1px solid var(--line); border-radius:9px; box-shadow:var(--shadow); min-width:200px; z-index:20; padding:6px; display:none;}
+  .dropdown.open{display:block;}
+  .dropdown button{width:100%; text-align:left; background:none; border:none; padding:8px 10px; border-radius:6px; font-size:13px; color:var(--ink); cursor:pointer; display:flex; align-items:center; gap:8px;}
+  .dropdown button:hover{background:var(--surface-2);}
+
+  .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:24px;}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:11px; padding:16px 18px; text-align:left; cursor:default; transition:box-shadow .15s;}
+  .card.clickable{cursor:pointer;}
+  .card.clickable:hover{box-shadow:var(--shadow); border-color:var(--accent-soft-line);}
+  .card .k{font-size:11.5px; color:var(--ink-faint); font-weight:500; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;}
+  .card .v{font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:600;}
+  .card .sub{font-size:12px; color:var(--ink-soft); margin-top:4px;}
+  .tag-cxc{color:var(--cxc-text);}
+  .tag-cxp{color:var(--cxp-text);}
+  .tag-danger{color:var(--danger);}
+  .tag-warn{color:var(--warn-text);}
+
+  .section-title{font-size:14px; font-weight:600; margin:26px 0 10px; color:var(--ink);}
+
+  .table-wrap{background:var(--surface); border:1px solid var(--line); border-radius:11px; overflow:hidden;}
+  .table-toolbar{display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line-soft); flex-wrap:wrap;}
+  .search-input{flex:1; min-width:160px; border:1px solid var(--line); border-radius:7px; padding:7px 10px; font-size:13px; background:var(--surface-2); color:var(--ink);}
+  .table-scroll{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{text-align:left; font-weight:500; color:var(--ink-faint); font-size:11.5px; padding:9px 14px; border-bottom:1px solid var(--line); white-space:nowrap; background:var(--surface-2);}
+  tbody td{padding:10px 14px; border-bottom:1px solid var(--line-soft); white-space:nowrap; color:var(--ink);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--surface-2);}
+  td.wrap{white-space:normal; max-width:220px;}
+  .cell-actions{display:flex; gap:4px; justify-content:flex-end;}
+  .empty-row td{text-align:center; color:var(--ink-faint); padding:34px 14px; white-space:normal;}
+  .chip{display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:20px; font-size:11.5px; font-weight:500;}
+  .chip-cxc{background:var(--cxc-soft); color:var(--cxc-text);}
+  .chip-cxp{background:var(--cxp-soft); color:var(--cxp-text);}
+  .chip-none{background:var(--line-soft); color:var(--ink-faint);}
+  .chip-pend{background:var(--warn-soft); color:var(--warn-text);}
+  .chip-pagado{background:var(--accent-soft); color:var(--accent);}
+  .chip-btn{border:none; cursor:pointer;}
+  .chip-admin{background:var(--accent-soft); color:var(--accent);}
+  .chip-usuario{background:var(--line-soft); color:var(--ink-soft);}
+
+  .overlay{position:fixed; inset:0; background:rgba(23,15,17,0.35); opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:40;}
+  .overlay.open{opacity:1; pointer-events:auto;}
+  .drawer{position:fixed; top:0; right:0; height:100vh; width:440px; max-width:92vw; background:var(--surface); border-left:1px solid var(--line); box-shadow:var(--shadow); transform:translateX(100%); transition:transform .22s ease; z-index:41; display:flex; flex-direction:column;}
+  .drawer.open{transform:translateX(0);}
+  .drawer-head{display:flex; align-items:center; justify-content:space-between; padding:16px 18px; border-bottom:1px solid var(--line-soft); flex:none;}
+  .drawer-head h2{font-family:'Space Grotesk',sans-serif; font-size:16px; margin:0; font-weight:600;}
+  .drawer-body{padding:16px 18px; overflow-y:auto; flex:1;}
+  .drawer-foot{padding:14px 18px; border-top:1px solid var(--line-soft); flex:none; display:flex; gap:8px; justify-content:flex-end;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12px; font-weight:500; color:var(--ink-soft); margin-bottom:5px;}
+  .field .req{color:var(--danger);}
+  .field input, .field textarea, .field select{width:100%; border:1px solid var(--line); border-radius:7px; padding:8px 10px; font-size:13.5px; background:var(--surface-2); color:var(--ink); font-family:inherit;}
+  .field textarea{resize:vertical; min-height:56px;}
+  .field-2col{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .hint{font-size:11.5px; color:var(--ink-faint); margin-top:8px;}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(23,15,17,0.4); opacity:0; pointer-events:none; transition:opacity .15s ease; z-index:50; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .modal-overlay.open{opacity:1; pointer-events:auto;}
+  .modal{background:var(--surface); border-radius:14px; width:100%; max-width:760px; max-height:82vh; display:flex; flex-direction:column; box-shadow:var(--shadow); transform:translateY(8px); transition:transform .15s ease;}
+  .modal-overlay.open .modal{transform:translateY(0);}
+  .modal-head{padding:16px 20px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; justify-content:space-between;}
+  .modal-head h2{font-family:'Space Grotesk',sans-serif; font-size:16px; margin:0;}
+  .modal-body{padding:0; overflow:auto;}
+  .modal-foot{padding:12px 20px; border-top:1px solid var(--line-soft); display:flex; justify-content:flex-end; gap:8px;}
+
+  #toast-wrap{position:fixed; bottom:18px; right:18px; z-index:60; display:flex; flex-direction:column; gap:8px;}
+  .toast{background:var(--ink); color:var(--bg); padding:10px 14px; border-radius:8px; font-size:13px; box-shadow:var(--shadow); max-width:320px; animation: toastin .16s ease;}
+  .toast.err{background:var(--danger);}
+  @keyframes toastin{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .upload-zone{border:1.5px dashed var(--line); border-radius:11px; padding:22px; text-align:center; color:var(--ink-soft); background:var(--surface-2); margin-bottom:18px;}
+  .upload-zone strong{color:var(--ink); font-weight:600;}
+  .upload-zone input[type=file]{display:none;}
+  .import-summary{font-size:12.5px; color:var(--ink-soft); margin-top:10px;}
+  .import-summary b{color:var(--ink);}
+
+  .banner{background:var(--warn-soft); border:1px solid var(--accent-soft-line); color:var(--ink); border-radius:9px; padding:12px 14px; font-size:13px; margin-bottom:18px;}
+  .status-dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--accent); margin-right:6px;}
+  .lock-msg{padding:50px 20px; text-align:center; color:var(--ink-faint);}
+
+  .perm-grid{display:grid; grid-template-columns:1fr repeat(4, 90px); gap:6px; align-items:center; font-size:12.5px;}
+  .perm-grid .hcell{font-weight:600; color:var(--ink-faint); font-size:11px; text-align:center;}
+  .perm-check{display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10.5px; color:var(--ink-soft);}
+
+  @media (max-width: 760px){
+    .sidebar{position:fixed; z-index:39; transform:translateX(-100%); transition:transform .2s ease; box-shadow:var(--shadow);}
+    .sidebar.open{transform:translateX(0);}
+    .main{padding:18px 16px 50px;}
+    .mobile-topbar{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+    .perm-grid{grid-template-columns:1fr repeat(4, 64px); font-size:11px;}
+  }
+  .mobile-topbar{display:none;}
+  @media (max-width:760px){ .mobile-topbar{display:flex;} }
+</style>
+</head>
+<body>
+
+<div id="authScreen" class="auth-wrap" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-brand">Ledger</div>
+    <div class="auth-sub">Control de cuentas por cobrar, por pagar y bancos.</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin">Iniciar sesión</button>
+      <button class="auth-tab" id="tabSignup">Crear cuenta</button>
+    </div>
+    <div id="authMsg"></div>
+    <div class="field"><label>Correo electrónico</label><input type="email" id="authEmail" autocomplete="username"></div>
+    <div class="field"><label>Contraseña</label><input type="password" id="authPassword" autocomplete="current-password"></div>
+    <button class="btn btn-primary btn-block" id="authSubmit">Entrar</button>
+    <div class="hint" id="authHint" style="margin-top:12px;">La primera persona en crear una cuenta queda como administrador, con acceso a toda la información. Los siguientes usuarios necesitan que el administrador les asigne permisos por catálogo.</div>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">Ledger <small>control de cuentas</small></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <div class="who">
+        <span><span class="status-dot"></span>Sesión activa</span>
+        <b id="whoEmail"></b>
+        <span class="role-badge" id="whoRole"></span>
+      </div>
+      <button class="btn btn-ghost" id="btnLogout" style="justify-content:flex-start; padding-left:0;">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="mobile-topbar">
+      <button class="icon-btn" id="btnMenu" aria-label="Abrir menú">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="brand" style="font-size:15px;">Ledger</div>
+    </div>
+    <div id="view"></div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2 id="drawerTitle">Nuevo</h2>
+    <button class="icon-btn" id="drawerClose" aria-label="Cerrar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn" id="drawerCancel">Cancelar</button>
+    <button class="btn btn-primary" id="drawerSave">Guardar</button>
+  </div>
+</aside>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="modalTitle">Detalle</h2>
+      <button class="icon-btn" id="modalClose">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<div id="toast-wrap"></div>
+
+<div id="statusBar" style="display:none; position:fixed; left:0; right:0; bottom:0; z-index:70; background:var(--surface); border-top:1px solid var(--line); box-shadow:var(--shadow); padding:10px 18px;">
+  <div style="display:flex; align-items:center; gap:12px; max-width:900px; margin:0 auto;">
+    <div id="statusLabel" style="font-size:12.5px; color:var(--ink-soft); white-space:nowrap;">Procesando…</div>
+    <div style="flex:1; height:7px; background:var(--line-soft); border-radius:20px; overflow:hidden;">
+      <div id="statusFill" style="height:100%; width:0%; background:var(--accent); transition:width .15s ease;"></div>
+    </div>
+    <div id="statusPct" style="font-size:12px; color:var(--ink-faint); width:34px; text-align:right;">0%</div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* =========================================================
+   SUPABASE CONFIG
+========================================================= */
+const SUPABASE_URL = 'https://ukrkacxhovhadgtblfjv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVrcmthY3hob3ZoYWRndGJsZmp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyMTU4NDYsImV4cCI6MjEwNDc5MTg0Nn0.XsA7IW--Me5X-jC8io0Hh9E9UqwvNMNIrfqflhk9rEg';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* =========================================================
+   ICONS
+========================================================= */
+const ICONS = {
+  home:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
+  truck:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="6" width="14" height="11"/><path d="M15 10h4l3 3v4h-7z"/><circle cx="6" cy="19" r="1.6"/><circle cx="17.5" cy="19" r="1.6"/></svg>',
+  users:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  bank:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10l9-6 9 6"/><path d="M4 10v9M9 10v9M15 10v9M20 10v9"/><path d="M2 21h20"/></svg>',
+  doc:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>',
+  shield:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  gear:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  edit:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>',
+  trash:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  upload:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4"/><path d="M6 10l6-6 6 6"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>',
+  refresh:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+  download:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  mail:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M22 6l-10 7L2 6"/></svg>',
+  chev:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg>',
+};
+
+/* =========================================================
+   CATALOG FIELD CONFIG
+========================================================= */
+const CATALOGS = {
+  proveedores: {
+    title:'Proveedores', singular:'proveedor', table:'proveedores', idLabel:'ID', orderCol:'id',
+    fields:[
+      {key:'nombre', col:'nombre', label:'Nombre del proveedor', type:'text', required:true},
+      {key:'rfc', col:'rfc', label:'RFC', type:'text', required:true, mono:true, upper:true},
+      {key:'cp', col:'cp', label:'Código postal', type:'text', half:true},
+      {key:'diasCredito', col:'dias_credito', label:'Días de crédito', type:'number', half:true},
+      {key:'direccion', col:'direccion', label:'Dirección', type:'textarea'},
+      {key:'regimenFiscal', col:'regimen_fiscal', label:'Régimen fiscal', type:'text'},
+      {key:'banco', col:'banco', label:'Banco', type:'bankSelect', half:true},
+      {key:'numCuenta', col:'num_cuenta', label:'Número de cuenta', type:'text', mono:true, half:true},
+      {key:'clabe', col:'clabe', label:'Cuenta CLABE', type:'text', mono:true},
+      {key:'productos', col:'productos', label:'Principales productos o servicios', type:'textarea'},
+      {key:'email', col:'email', label:'Correo electrónico', type:'email', half:true},
+      {key:'telefono', col:'telefono', label:'Número telefónico', type:'text', half:true},
+      {key:'contacto', col:'contacto', label:'Personas de contacto', type:'text'},
+    ],
+    columns:[['id','ID'],['nombre','Nombre'],['rfc','RFC'],['diasCredito','Días crédito'],['telefono','Teléfono'],['email','Correo']]
+  },
+  clientes: {
+    title:'Clientes', singular:'cliente', table:'clientes', idLabel:'ID', orderCol:'id',
+    fields:[
+      {key:'nombre', col:'nombre', label:'Nombre del cliente', type:'text', required:true},
+      {key:'rfc', col:'rfc', label:'RFC', type:'text', required:true, mono:true, upper:true},
+      {key:'cp', col:'cp', label:'Código postal', type:'text', half:true},
+      {key:'diasCredito', col:'dias_credito', label:'Días de crédito', type:'number', half:true},
+      {key:'direccion', col:'direccion', label:'Dirección', type:'textarea'},
+      {key:'regimenFiscal', col:'regimen_fiscal', label:'Régimen fiscal', type:'text'},
+      {key:'usoFiscal', col:'uso_fiscal', label:'Uso fiscal de la factura', type:'text'},
+      {key:'banco', col:'banco', label:'Banco', type:'bankSelect', half:true},
+      {key:'numCuenta', col:'num_cuenta', label:'Número de cuenta', type:'text', mono:true, half:true},
+      {key:'clabe', col:'clabe', label:'Cuenta CLABE', type:'text', mono:true},
+      {key:'productos', col:'productos', label:'Principales productos o servicios', type:'textarea'},
+      {key:'email', col:'email', label:'Correo electrónico', type:'email', half:true},
+      {key:'telefono', col:'telefono', label:'Número telefónico', type:'text', half:true},
+      {key:'contacto', col:'contacto', label:'Personas de contacto', type:'text'},
+    ],
+    columns:[['id','ID'],['nombre','Nombre'],['rfc','RFC'],['diasCredito','Días crédito'],['telefono','Teléfono'],['email','Correo']]
+  },
+  bancos: {
+    title:'Cuentas bancarias', singular:'cuenta bancaria', table:'bancos', idLabel:'ID', orderCol:'id',
+    fields:[
+      {key:'nombreBanco', col:'nombre_banco', label:'Nombre del banco', type:'bankSelect', required:true},
+      {key:'saldo', col:'saldo', label:'Saldo inicial (MXN)', type:'number', half:true},
+      {key:'fechaSaldoInicial', col:'fecha_saldo_inicial', label:'Fecha de saldo inicial', type:'date', half:true},
+      {key:'numCuenta', col:'num_cuenta', label:'Número de cuenta', type:'text', mono:true, half:true},
+      {key:'clabe', col:'clabe', label:'Cuenta CLABE', type:'text', mono:true, half:true},
+      {key:'email', col:'email', label:'Correo electrónico', type:'email', half:true},
+      {key:'telefono', col:'telefono', label:'Número telefónico', type:'text', half:true},
+      {key:'contacto', col:'contacto', label:'Personas de contacto', type:'text'},
+    ],
+    columns:[['id','ID'],['nombreBanco','Banco'],['saldo','Saldo'],['fechaSaldoInicial','Fecha saldo'],['numCuenta','Cuenta'],['clabe','CLABE'],['telefono','Teléfono']]
+  }
+};
+const CATALOG_KEYS = ['proveedores','clientes','bancos','documentos'];
+const CATALOG_LABELS = {proveedores:'Proveedores', clientes:'Clientes', bancos:'Cuentas bancarias', documentos:'Documentos administrativos'};
+
+const TIPO_COMPROBANTE = {I:'Ingreso', E:'Egreso', P:'Pago', N:'Nómina', T:'Traslado'};
+const DOC_COLMAP = {
+  uuid:'uuid', tipo:'tipo', fecha:'fecha', metodoPago:'metodo_pago', formaPago:'forma_pago',
+  serie:'serie', folio:'folio', usoCFDI:'uso_cfdi', total:'total', fechaIngreso:'fecha_ingreso',
+  fechaVencimiento:'fecha_vencimiento', diasCredito:'dias_credito', rfc:'rfc', nombre:'nombre',
+  tipoRelacion:'tipo_relacion', estado:'estado', ordenCompra:'orden_compra'
+};
+const DIAS_POR_VENCER = 7;
+
+/* Catálogo de bancos (CLABE / SAT) para el buscador del campo "Nombre del banco" */
+const BANCOS_CATALOGO=[
+{c:'002',n:'BANAMEX',r:'Banco Nacional de México, S.A., Institución de Banca Múltiple, Grupo Financiero Banamex'},
+{c:'006',n:'BANCOMEXT',r:'Banco Nacional de Comercio Exterior, Sociedad Nacional de Crédito, Institución de Banca de Desarrollo'},
+{c:'009',n:'BANOBRAS',r:'Banco Nacional de Obras y Servicios Públicos, Sociedad Nacional de Crédito, Institución de Banca de Desarrollo'},
+{c:'012',n:'BBVA BANCOMER',r:'BBVA Bancomer, S.A., Institución de Banca Múltiple, Grupo Financiero BBVA Bancomer'},
+{c:'014',n:'SANTANDER',r:'Banco Santander (México), S.A., Institución de Banca Múltiple, Grupo Financiero Santander'},
+{c:'019',n:'BANJERCITO',r:'Banco Nacional del Ejército, Fuerza Aérea y Armada, Sociedad Nacional de Crédito, Institución de Banca de Desarrollo'},
+{c:'021',n:'HSBC',r:'HSBC México, S.A., institución De Banca Múltiple, Grupo Financiero HSBC'},
+{c:'030',n:'BAJIO',r:'Banco del Bajío, S.A., Institución de Banca Múltiple'},
+{c:'032',n:'IXE',r:'IXE Banco, S.A., Institución de Banca Múltiple, IXE Grupo Financiero'},
+{c:'036',n:'INBURSA',r:'Banco Inbursa, S.A., Institución de Banca Múltiple, Grupo Financiero Inbursa'},
+{c:'037',n:'INTERACCIONES',r:'Banco Interacciones, S.A., Institución de Banca Múltiple'},
+{c:'042',n:'MIFEL',r:'Banca Mifel, S.A., Institución de Banca Múltiple, Grupo Financiero Mifel'},
+{c:'044',n:'SCOTIABANK',r:'Scotiabank Inverlat, S.A.'},
+{c:'058',n:'BANREGIO',r:'Banco Regional de Monterrey, S.A., Institución de Banca Múltiple, Banregio Grupo Financiero'},
+{c:'059',n:'INVEX',r:'Banco Invex, S.A., Institución de Banca Múltiple, Invex Grupo Financiero'},
+{c:'060',n:'BANSI',r:'Bansi, S.A., Institución de Banca Múltiple'},
+{c:'062',n:'AFIRME',r:'Banca Afirme, S.A., Institución de Banca Múltiple'},
+{c:'072',n:'BANORTE',r:'Banco Mercantil del Norte, S.A., Institución de Banca Múltiple, Grupo Financiero Banorte'},
+{c:'102',n:'THE ROYAL BANK',r:'The Royal Bank of Scotland México, S.A., Institución de Banca Múltiple'},
+{c:'103',n:'AMERICAN EXPRESS',r:'American Express Bank (México), S.A., Institución de Banca Múltiple'},
+{c:'106',n:'BAMSA',r:'Bank of America México, S.A., Institución de Banca Múltiple, Grupo Financiero Bank of America'},
+{c:'108',n:'TOKYO',r:'Bank of Tokyo-Mitsubishi UFJ (México), S.A.'},
+{c:'110',n:'JP MORGAN',r:'Banco J.P. Morgan, S.A., Institución de Banca Múltiple, J.P. Morgan Grupo Financiero'},
+{c:'112',n:'BMONEX',r:'Banco Monex, S.A., Institución de Banca Múltiple'},
+{c:'113',n:'VE POR MAS',r:'Banco Ve Por Mas, S.A. Institución de Banca Múltiple'},
+{c:'116',n:'ING',r:'ING Bank (México), S.A., Institución de Banca Múltiple, ING Grupo Financiero'},
+{c:'124',n:'DEUTSCHE',r:'Deutsche Bank México, S.A., Institución de Banca Múltiple'},
+{c:'126',n:'CREDIT SUISSE',r:'Banco Credit Suisse (México), S.A. Institución de Banca Múltiple, Grupo Financiero Credit Suisse (México)'},
+{c:'127',n:'AZTECA',r:'Banco Azteca, S.A. Institución de Banca Múltiple.'},
+{c:'128',n:'AUTOFIN',r:'Banco Autofin México, S.A. Institución de Banca Múltiple'},
+{c:'129',n:'BARCLAYS',r:'Barclays Bank México, S.A., Institución de Banca Múltiple, Grupo Financiero Barclays México'},
+{c:'130',n:'COMPARTAMOS',r:'Banco Compartamos, S.A., Institución de Banca Múltiple'},
+{c:'131',n:'BANCO FAMSA',r:'Banco Ahorro Famsa, S.A., Institución de Banca Múltiple'},
+{c:'132',n:'BMULTIVA',r:'Banco Multiva, S.A., Institución de Banca Múltiple, Multivalores Grupo Financiero'},
+{c:'133',n:'ACTINVER',r:'Banco Actinver, S.A. Institución de Banca Múltiple, Grupo Financiero Actinver'},
+{c:'134',n:'WAL-MART',r:'Banco Wal-Mart de México Adelante, S.A., Institución de Banca Múltiple'},
+{c:'135',n:'NAFIN',r:'Nacional Financiera, Sociedad Nacional de Crédito, Institución de Banca de Desarrollo'},
+{c:'136',n:'INTERBANCO',r:'Inter Banco, S.A. Institución de Banca Múltiple'},
+{c:'137',n:'BANCOPPEL',r:'BanCoppel, S.A., Institución de Banca Múltiple'},
+{c:'138',n:'ABC CAPITAL',r:'ABC Capital, S.A., Institución de Banca Múltiple'},
+{c:'139',n:'UBS BANK',r:'UBS Bank México, S.A., Institución de Banca Múltiple, UBS Grupo Financiero'},
+{c:'140',n:'CONSUBANCO',r:'Consubanco, S.A. Institución de Banca Múltiple'},
+{c:'141',n:'VOLKSWAGEN',r:'Volkswagen Bank, S.A., Institución de Banca Múltiple'},
+{c:'143',n:'CIBANCO',r:'CIBanco, S.A.'},
+{c:'145',n:'BBASE',r:'Banco Base, S.A., Institución de Banca Múltiple'},
+{c:'166',n:'BANSEFI',r:'Banco del Ahorro Nacional y Servicios Financieros, Sociedad Nacional de Crédito, Institución de Banca de Desarrollo'},
+{c:'168',n:'HIPOTECARIA FEDERAL',r:'Sociedad Hipotecaria Federal, Sociedad Nacional de Crédito, Institución de Banca de Desarrollo'},
+{c:'600',n:'MONEXCB',r:'Monex Casa de Bolsa, S.A. de C.V. Monex Grupo Financiero'},
+{c:'601',n:'GBM',r:'GBM Grupo Bursátil Mexicano, S.A. de C.V. Casa de Bolsa'},
+{c:'602',n:'MASARI',r:'Masari Casa de Bolsa, S.A.'},
+{c:'605',n:'VALUE',r:'Value, S.A. de C.V. Casa de Bolsa'},
+{c:'606',n:'ESTRUCTURADORES',r:'Estructuradores del Mercado de Valores Casa de Bolsa, S.A. de C.V.'},
+{c:'607',n:'TIBER',r:'Casa de Cambio Tiber, S.A. de C.V.'},
+{c:'608',n:'VECTOR',r:'Vector Casa de Bolsa, S.A. de C.V.'},
+{c:'610',n:'B&B',r:'B y B, Casa de Cambio, S.A. de C.V.'},
+{c:'614',n:'ACCIVAL',r:'Acciones y Valores Banamex, S.A. de C.V., Casa de Bolsa'},
+{c:'615',n:'MERRILL LYNCH',r:'Merrill Lynch México, S.A. de C.V. Casa de Bolsa'},
+{c:'616',n:'FINAMEX',r:'Casa de Bolsa Finamex, S.A. de C.V.'},
+{c:'617',n:'VALMEX',r:'Valores Mexicanos Casa de Bolsa, S.A. de C.V.'},
+{c:'618',n:'UNICA',r:'Unica Casa de Cambio, S.A. de C.V.'},
+{c:'619',n:'MAPFRE',r:'MAPFRE Tepeyac, S.A.'},
+{c:'620',n:'PROFUTURO',r:'Profuturo G.N.P., S.A. de C.V., Afore'},
+{c:'621',n:'CB ACTINVER',r:'Actinver Casa de Bolsa, S.A. de C.V.'},
+{c:'622',n:'OACTIN',r:'OPERADORA ACTINVER, S.A. DE C.V.'},
+{c:'623',n:'SKANDIA',r:'Skandia Vida, S.A. de C.V.'},
+{c:'626',n:'CBDEUTSCHE',r:'Deutsche Securities, S.A. de C.V. CASA DE BOLSA'},
+{c:'627',n:'ZURICH',r:'Zurich Compañía de Seguros, S.A.'},
+{c:'628',n:'ZURICHVI',r:'Zurich Vida, Compañía de Seguros, S.A.'},
+{c:'629',n:'SU CASITA',r:'Hipotecaria Su Casita, S.A. de C.V. SOFOM ENR'},
+{c:'630',n:'CB INTERCAM',r:'Intercam Casa de Bolsa, S.A. de C.V.'},
+{c:'631',n:'CI BOLSA',r:'CI Casa de Bolsa, S.A. de C.V.'},
+{c:'632',n:'BULLTICK CB',r:'Bulltick Casa de Bolsa, S.A., de C.V.'},
+{c:'633',n:'STERLING',r:'Sterling Casa de Cambio, S.A. de C.V.'},
+{c:'634',n:'FINCOMUN',r:'Fincomún, Servicios Financieros Comunitarios, S.A. de C.V.'},
+{c:'636',n:'HDI SEGUROS',r:'HDI Seguros, S.A. de C.V.'},
+{c:'637',n:'ORDER',r:'Order Express Casa de Cambio, S.A. de C.V'},
+{c:'638',n:'AKALA',r:'Akala, S.A. de C.V., Sociedad Financiera Popular'},
+{c:'640',n:'CB JPMORGAN',r:'J.P. Morgan Casa de Bolsa, S.A. de C.V. J.P. Morgan Grupo Financiero'},
+{c:'642',n:'REFORMA',r:'Operadora de Recursos Reforma, S.A. de C.V., S.F.P.'},
+{c:'646',n:'STP',r:'Sistema de Transferencias y Pagos STP, S.A. de C.V.SOFOM ENR'},
+{c:'647',n:'TELECOMM',r:'Telecomunicaciones de México'},
+{c:'648',n:'EVERCORE',r:'Evercore Casa de Bolsa, S.A. de C.V.'},
+{c:'649',n:'SKANDIA',r:'Skandia Operadora de Fondos, S.A. de C.V.'},
+{c:'651',n:'SEGMTY',r:'Seguros Monterrey New York Life, S.A de C.V'},
+{c:'652',n:'ASEA',r:'Solución Asea, S.A. de C.V., Sociedad Financiera Popular'},
+{c:'653',n:'KUSPIT',r:'Kuspit Casa de Bolsa, S.A. de C.V.'},
+{c:'655',n:'SOFIEXPRESS',r:'J.P. SOFIEXPRESS, S.A. de C.V., S.F.P.'},
+{c:'656',n:'UNAGRA',r:'UNAGRA, S.A. de C.V., S.F.P.'},
+{c:'659',n:'OPCIONES EMPRESARIALES DEL NOROESTE',r:'OPCIONES EMPRESARIALES DEL NORESTE, S.A. DE C.V., S.F.P.'},
+{c:'901',n:'CLS',r:'Cls Bank International'},
+{c:'902',n:'INDEVAL',r:'SD. Indeval, S.A. de C.V.'},
+{c:'670',n:'LIBERTAD',r:'Libertad Servicios Financieros, S.A. De C.V.'},
+{c:'999',n:'N/A',r:''}
+];
+
+/* =========================================================
+   STATE
+========================================================= */
+let state = {
+  tab:'resumen',
+  session:null,
+  profile:null,          // {id,email,role}
+  permisos:{},           // {catalogo: {can_view, can_edit}}
+  isAdmin:false,
+  allProfiles:[],        // for admin panel
+  allPermisos:[],
+  config:{rfcEmpresa:'', razonSocial:''},
+  data:{proveedores:[], clientes:[], bancos:[], documentos:[]},
+  loaded:{proveedores:false, clientes:false, bancos:false, documentos:false},
+  filters:{proveedores:'', clientes:'', bancos:'', documentos:''},
+  tableCtl:{},
+  selectedDocs: new Set(),
+};
+
+function canView(cat){ return state.isAdmin || !!(state.permisos[cat] && state.permisos[cat].can_view); }
+function canEdit(cat){ return state.isAdmin || !!(state.permisos[cat] && state.permisos[cat].can_edit); }
+
+/* =========================================================
+   UTIL
+========================================================= */
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content.firstChild; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso+'T00:00:00');
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('es-MX', {day:'2-digit', month:'short', year:'numeric'});
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function addDaysISO(iso, days){
+  const d = new Date(iso+'T00:00:00');
+  d.setDate(d.getDate() + (Number(days)||0));
+  return d.toISOString().slice(0,10);
+}
+function fmtMoney(n){
+  const v = Number(n);
+  if(isNaN(v)) return '—';
+  return v.toLocaleString('es-MX', {style:'currency', currency:'MXN'});
+}
+function toast(msg, isErr){
+  const t = el(`<div class="toast ${isErr?'err':''}">${esc(msg)}</div>`);
+  document.getElementById('toast-wrap').appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .2s'; setTimeout(()=>t.remove(),200); }, 3200);
+}
+async function fetchAllRows(table, orderCol, ascending, onProgress){
+  const PAGE = 1000;
+  let all = [];
+  let from = 0;
+  while(true){
+    const {data, error} = await sb.from(table).select('*').order(orderCol, {ascending}).range(from, from+PAGE-1);
+    if(error) throw error;
+    all = all.concat(data);
+    if(onProgress) onProgress(all.length);
+    if(data.length < PAGE) break;
+    from += PAGE;
+  }
+  return all;
+}
+
+/* ---- Barra de estado / progreso global ---- */
+function statusShow(label){
+  document.getElementById('statusLabel').textContent = label;
+  document.getElementById('statusFill').style.width = '0%';
+  document.getElementById('statusPct').textContent = '0%';
+  document.getElementById('statusBar').style.display = 'block';
+}
+function statusUpdate(done, total, label){
+  const pct = total>0 ? Math.min(100, Math.round(done/total*100)) : 0;
+  document.getElementById('statusFill').style.width = pct+'%';
+  document.getElementById('statusPct').textContent = pct+'%';
+  if(label) document.getElementById('statusLabel').textContent = label;
+}
+function statusHide(delay){
+  setTimeout(()=>{ document.getElementById('statusBar').style.display = 'none'; }, delay||400);
+}
+function rowToCamel(row, fields){
+  const obj = {id: row.id, createdAt: row.created_at};
+  fields.forEach(f=>{ obj[f.key] = row[f.col]; });
+  return obj;
+}
+function camelToRow(payload, fields){
+  const row = {};
+  fields.forEach(f=>{ row[f.col] = payload[f.key]; });
+  return row;
+}
+function docRowToCamel(row){
+  const obj = {};
+  Object.keys(DOC_COLMAP).forEach(k=>{ obj[k]=row[DOC_COLMAP[k]]; });
+  return obj;
+}
+function docCamelToRow(obj){
+  const row = {};
+  Object.keys(DOC_COLMAP).forEach(k=>{ if(obj[k]!==undefined) row[DOC_COLMAP[k]]=obj[k]; });
+  return row;
+}
+function closeAllDropdowns(){ document.querySelectorAll('.dropdown.open').forEach(d=>d.classList.remove('open')); }
+document.addEventListener('click', (e)=>{
+  if(!e.target.closest('.topbar-actions')) closeAllDropdowns();
+});
+
+/* ---- Confirmación con advertencia (reemplaza window.confirm) ---- */
+function confirmModal(title, message, confirmLabel){
+  return new Promise((resolve)=>{
+    document.getElementById('modalTitle').textContent = title;
+    const body = document.getElementById('modalBody');
+    body.innerHTML='';
+    body.appendChild(el(`<div style="padding:20px; display:flex; gap:14px; align-items:flex-start;">
+      <div style="flex:none; width:38px; height:38px; border-radius:50%; background:var(--danger-soft); display:flex; align-items:center; justify-content:center; color:var(--danger);">${ICONS.trash}</div>
+      <div style="font-size:13.5px; color:var(--ink); line-height:1.6;">${message}</div>
+    </div>`));
+    const foot = document.getElementById('modalFoot');
+    foot.innerHTML='';
+    const ov = document.getElementById('modalOverlay');
+    let settled = false;
+    const finish = (val)=>{
+      if(settled) return; settled=true;
+      ov._confirmReject = null;
+      closeModal();
+      resolve(val);
+    };
+    const cancelBtn = el(`<button class="btn">Cancelar</button>`);
+    const okBtn = el(`<button class="btn" style="background:var(--danger); border-color:var(--danger); color:#fff;">${esc(confirmLabel||'Eliminar')}</button>`);
+    cancelBtn.addEventListener('click', ()=>finish(false));
+    okBtn.addEventListener('click', ()=>finish(true));
+    foot.appendChild(cancelBtn); foot.appendChild(okBtn);
+    ov._confirmReject = ()=>finish(false);
+    ov.classList.add('open');
+  });
+}
+
+/* ---- Orden, filtro (incl. rango de fechas) y paginación, reutilizable en todas las tablas ---- */
+const PAGE_SIZE_OPTIONS = [30, 50, 100, 500, 1000];
+function ensureTableCtl(key){
+  if(!state.tableCtl[key]) state.tableCtl[key] = {sortCol:null, sortDir:'asc', filters:{}, pageSize:100, page:0};
+  return state.tableCtl[key];
+}
+function colValue(row, col){
+  if(col.sortValue) return col.sortValue(row);
+  if(col.render) return stripHtml(col.render(row));
+  return row[col.key];
+}
+function dateOnly(v){
+  if(!v) return '';
+  return String(v).slice(0,10);
+}
+function applyFilterSort(key, rows, columns){
+  const ctl = ensureTableCtl(key);
+  let out = rows;
+  Object.keys(ctl.filters).forEach(colKey=>{
+    const col = columns.find(c=>c.key===colKey);
+    if(!col) return;
+    const filterVal = ctl.filters[colKey];
+    if(col.dateFilter){
+      if(!filterVal || (!filterVal.from && !filterVal.to)) return;
+      out = out.filter(r=>{
+        const dv = dateOnly(colValue(r,col));
+        if(!dv) return false;
+        if(filterVal.from && dv < filterVal.from) return false;
+        if(filterVal.to && dv > filterVal.to) return false;
+        return true;
+      });
+    }else{
+      const val = (filterVal||'').trim().toLowerCase();
+      if(!val) return;
+      out = out.filter(r => String(colValue(r,col)==null?'':colValue(r,col)).toLowerCase().includes(val));
+    }
+  });
+  if(ctl.sortCol){
+    const col = columns.find(c=>c.key===ctl.sortCol);
+    if(col){
+      out = out.slice().sort((a,b)=>{
+        const va = colValue(a,col), vb = colValue(b,col);
+        const na = parseFloat(va), nb = parseFloat(vb);
+        const bothNumeric = va!=='' && vb!=='' && va!=null && vb!=null && !isNaN(na) && !isNaN(nb) && String(va).match(/^-?[\d.]+$/) && String(vb).match(/^-?[\d.]+$/);
+        let cmp;
+        if(bothNumeric) cmp = na-nb;
+        else cmp = String(va==null?'':va).localeCompare(String(vb==null?'':vb), 'es');
+        return ctl.sortDir==='asc' ? cmp : -cmp;
+      });
+    }
+  }
+  return out;
+}
+function paginateRows(key, rows){
+  const ctl = ensureTableCtl(key);
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total/ctl.pageSize));
+  if(ctl.page > totalPages-1) ctl.page = totalPages-1;
+  if(ctl.page < 0) ctl.page = 0;
+  const start = ctl.page*ctl.pageSize;
+  const pageRows = rows.slice(start, start+ctl.pageSize);
+  return {pageRows, total, start, end: start+pageRows.length, totalPages, page:ctl.page, pageSize:ctl.pageSize};
+}
+function renderPaginationBar(key, info, onChange){
+  const ctl = ensureTableCtl(key);
+  const bar = el(`<div class="table-toolbar" style="justify-content:space-between;"></div>`);
+  const left = el(`<div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-soft);"></div>`);
+  left.appendChild(el(`<span>Mostrar</span>`));
+  const sel = el(`<select style="border:1px solid var(--line); border-radius:6px; padding:3px 6px; font-size:12.5px; background:var(--surface); color:var(--ink);">${PAGE_SIZE_OPTIONS.map(n=>`<option value="${n}" ${n===ctl.pageSize?'selected':''}>${n}</option>`).join('')}</select>`);
+  sel.addEventListener('change', ()=>{ ctl.pageSize = Number(sel.value); ctl.page = 0; onChange(); });
+  left.appendChild(sel);
+  left.appendChild(el(`<span>por página · ${info.total.toLocaleString('es-MX')} registro(s)</span>`));
+  bar.appendChild(left);
+
+  const right = el(`<div style="display:flex; align-items:center; gap:6px;"></div>`);
+  const prevBtn = el(`<button class="btn btn-sm" ${info.page<=0?'disabled':''}>${ICONS.chev}</button>`);
+  prevBtn.style.transform = 'rotate(90deg)';
+  prevBtn.addEventListener('click', ()=>{ ctl.page = Math.max(0, ctl.page-1); onChange(); });
+  const nextBtn = el(`<button class="btn btn-sm" ${info.page>=info.totalPages-1?'disabled':''}>${ICONS.chev}</button>`);
+  nextBtn.style.transform = 'rotate(-90deg)';
+  nextBtn.addEventListener('click', ()=>{ ctl.page = Math.min(info.totalPages-1, ctl.page+1); onChange(); });
+  right.appendChild(prevBtn);
+  right.appendChild(el(`<span style="font-size:12.5px; color:var(--ink-soft);">${info.total===0?'0':(info.start+1)}–${info.end} de ${info.total.toLocaleString('es-MX')}</span>`));
+  right.appendChild(nextBtn);
+  bar.appendChild(right);
+  return bar;
+}
+function renderSortableHead(key, columns, opts){
+  opts = opts || {};
+  const ctl = ensureTableCtl(key);
+  const headRow = el(`<tr></tr>`);
+  if(opts.leading!==undefined) headRow.appendChild(el(`<th>${opts.leading}</th>`));
+  columns.forEach(col=>{
+    const active = ctl.sortCol===col.key;
+    const arrow = active ? (ctl.sortDir==='asc' ? ' ▲' : ' ▼') : '';
+    const th = el(`<th style="cursor:pointer; user-select:none;">${esc(col.label)}<span style="color:var(--accent);">${arrow}</span></th>`);
+    th.addEventListener('click', ()=>{
+      if(ctl.sortCol===col.key){ ctl.sortDir = ctl.sortDir==='asc' ? 'desc' : 'asc'; }
+      else{ ctl.sortCol = col.key; ctl.sortDir = 'asc'; }
+      render();
+    });
+    headRow.appendChild(th);
+  });
+  if(opts.trailing!==undefined) headRow.appendChild(el(`<th>${opts.trailing}</th>`));
+
+  const filterRow = el(`<tr></tr>`);
+  if(opts.leading!==undefined) filterRow.appendChild(el(`<th></th>`));
+  columns.forEach(col=>{
+    const th = el(`<th style="padding:5px 8px;"></th>`);
+    if(col.dateFilter){
+      const wrap2 = el(`<div style="display:flex; gap:3px;"></div>`);
+      const cur = ctl.filters[col.key] || {from:'', to:''};
+      ctl.filters[col.key] = cur;
+      const dFrom = el(`<input type="date" title="Desde" style="width:100%; border:1px solid var(--line); border-radius:5px; padding:3px 4px; font-size:10.5px; background:var(--surface); color:var(--ink);">`);
+      dFrom.value = cur.from||'';
+      const dTo = el(`<input type="date" title="Hasta" style="width:100%; border:1px solid var(--line); border-radius:5px; padding:3px 4px; font-size:10.5px; background:var(--surface); color:var(--ink);">`);
+      dTo.value = cur.to||'';
+      dFrom.addEventListener('input', ()=>{ cur.from = dFrom.value; ctl.page=0; renderTbodyRef.fn && renderTbodyRef.fn(); });
+      dTo.addEventListener('input', ()=>{ cur.to = dTo.value; ctl.page=0; renderTbodyRef.fn && renderTbodyRef.fn(); });
+      wrap2.appendChild(dFrom); wrap2.appendChild(dTo);
+      th.appendChild(wrap2);
+    }else{
+      const input = el(`<input type="text" placeholder="Filtrar…" style="width:100%; border:1px solid var(--line); border-radius:5px; padding:4px 6px; font-size:11.5px; background:var(--surface); color:var(--ink);">`);
+      input.value = ctl.filters[col.key]||'';
+      input.addEventListener('input', ()=>{ ctl.filters[col.key]=input.value; ctl.page=0; renderTbodyRef.fn && renderTbodyRef.fn(); });
+      th.appendChild(input);
+    }
+    filterRow.appendChild(th);
+  });
+  if(opts.trailing!==undefined) filterRow.appendChild(el(`<th></th>`));
+  return {headRow, filterRow};
+}
+const renderTbodyRef = {fn:null};
+
+/* =========================================================
+   AUTH
+========================================================= */
+let authMode = 'login';
+document.getElementById('tabLogin').addEventListener('click', ()=>setAuthMode('login'));
+document.getElementById('tabSignup').addEventListener('click', ()=>setAuthMode('signup'));
+function setAuthMode(mode){
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('authSubmit').textContent = mode==='login' ? 'Entrar' : 'Crear cuenta';
+  document.getElementById('authMsg').innerHTML='';
+}
+document.getElementById('authSubmit').addEventListener('click', async ()=>{
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const msg = document.getElementById('authMsg');
+  const btn = document.getElementById('authSubmit');
+  msg.innerHTML='';
+  if(!email || !password){ msg.innerHTML = '<div class="auth-error">Ingresa correo y contraseña.</div>'; return; }
+  if(password.length < 6){ msg.innerHTML = '<div class="auth-error">La contraseña debe tener al menos 6 caracteres.</div>'; return; }
+  btn.disabled = true; btn.textContent = authMode==='login' ? 'Entrando…' : 'Creando…';
+  try{
+    if(authMode==='login'){
+      const {error} = await sb.auth.signInWithPassword({email, password});
+      if(error) throw error;
+    }else{
+      const {data, error} = await sb.auth.signUp({email, password});
+      if(error) throw error;
+      if(data.session===null){
+        msg.innerHTML = '<div class="auth-ok">Cuenta creada. Revisa tu correo para confirmar el acceso, o inicia sesión si la confirmación no está activa.</div>';
+      }
+    }
+  }catch(e){
+    msg.innerHTML = '<div class="auth-error">'+esc(e.message||'No se pudo completar la solicitud.')+'</div>';
+  }finally{
+    btn.disabled=false; btn.textContent = authMode==='login' ? 'Entrar' : 'Crear cuenta';
+  }
+});
+document.getElementById('btnLogout').addEventListener('click', async ()=>{ await sb.auth.signOut(); });
+
+sb.auth.onAuthStateChange((event, session)=>{
+  state.session = session;
+  if(session){
+    document.getElementById('authScreen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    document.getElementById('whoEmail').textContent = session.user.email || '';
+    initAfterLogin();
+  }else{
+    document.getElementById('app').style.display='none';
+    document.getElementById('authScreen').style.display='flex';
+  }
+});
+
+async function initAfterLogin(){
+  await loadProfileAndPermisos();
+  await loadConfig();
+  render();
+  await loadAll();
+}
+
+async function loadConfig(){
+  const {data, error} = await sb.from('configuracion').select('*').eq('id',1).maybeSingle();
+  if(!error && data){
+    state.config = {rfcEmpresa: (data.rfc_empresa||'').toUpperCase(), razonSocial: data.razon_social||''};
+  }
+}
+
+async function loadProfileAndPermisos(){
+  const uid = state.session.user.id;
+  const {data: prof, error: e1} = await sb.from('profiles').select('*').eq('id', uid).maybeSingle();
+  if(e1){ toast('Error leyendo perfil: '+e1.message, true); return; }
+  state.profile = prof;
+  state.isAdmin = prof && prof.role==='admin';
+  document.getElementById('whoRole').textContent = state.isAdmin ? 'Administrador' : 'Usuario';
+
+  const {data: perms, error: e2} = await sb.from('permisos').select('*').eq('user_id', uid);
+  if(!e2 && perms){
+    const map = {};
+    perms.forEach(p=>{ map[p.catalogo] = {can_view:p.can_view, can_edit:p.can_edit}; });
+    state.permisos = map;
+  }
+
+  if(state.isAdmin){
+    const {data: allP} = await sb.from('profiles').select('*').order('created_at',{ascending:true});
+    state.allProfiles = allP || [];
+    const {data: allPerm} = await sb.from('permisos').select('*');
+    state.allPermisos = allPerm || [];
+  }
+}
+
+/* =========================================================
+   DATA LOADING
+========================================================= */
+async function loadCatalog(key){
+  if(!canView(key)){ state.loaded[key]=true; state.data[key]=[]; render(); return; }
+  const cfg = CATALOGS[key];
+  try{
+    const rows = await fetchAllRows(cfg.table, cfg.orderCol, true);
+    state.data[key] = rows.map(r=>rowToCamel(r, cfg.fields));
+    state.loaded[key] = true;
+    render();
+  }catch(error){ toast('Error leyendo '+cfg.title+': '+error.message, true); }
+}
+async function loadDocumentos(silent){
+  if(!canView('documentos')){ state.loaded.documentos=true; state.data.documentos=[]; render(); return; }
+  try{
+    if(!silent) statusShow('Cargando documentos…');
+    const rows = await fetchAllRows('documentos', 'created_at', false, (n)=>{ if(!silent) statusUpdate(n, Math.max(n, state.data.documentos.length||n), 'Cargando documentos… ('+n+')'); });
+    state.data.documentos = rows.map(docRowToCamel);
+    state.loaded.documentos = true;
+    if(!silent){ statusUpdate(1,1,'Documentos cargados'); statusHide(); }
+    render();
+  }catch(error){ if(!silent) statusHide(0); toast('Error leyendo documentos: '+error.message, true); }
+}
+async function loadAll(silent){
+  await Promise.all([loadCatalog('proveedores'), loadCatalog('clientes'), loadCatalog('bancos'), loadDocumentos(silent)]);
+}
+function isUserBusy(){
+  if(document.getElementById('drawer').classList.contains('open')) return true;
+  if(document.getElementById('modalOverlay').classList.contains('open')) return true;
+  if(state.selectedDocs.size>0) return true;
+  const ae = document.activeElement;
+  if(ae && ['INPUT','SELECT','TEXTAREA'].includes(ae.tagName)) return true;
+  return false;
+}
+setInterval(()=>{ if(state.session && !isUserBusy()) loadAll(true); }, 180000);
+
+/* =========================================================
+   NAV
+========================================================= */
+function navItems(){
+  const items = [{key:'resumen', label:'Resumen', icon:'home'}];
+  if(canView('proveedores')) items.push({key:'proveedores', label:'Proveedores', icon:'truck'});
+  if(canView('clientes')) items.push({key:'clientes', label:'Clientes', icon:'users'});
+  if(canView('bancos')) items.push({key:'bancos', label:'Cuentas bancarias', icon:'bank'});
+  if(canView('documentos')) items.push({key:'documentos', label:'Documentos', icon:'doc'});
+  if(state.isAdmin) items.push({key:'usuarios', label:'Usuarios y permisos', icon:'shield', sep:true});
+  if(state.isAdmin) items.push({key:'configuracion', label:'Configuración', icon:'gear'});
+  return items;
+}
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.innerHTML='';
+  navItems().forEach(item=>{
+    if(item.sep) nav.appendChild(el(`<div class="nav-sep"></div>`));
+    const count = (item.key==='resumen'||item.key==='usuarios'||item.key==='configuracion') ? null : state.data[item.key].length;
+    const btn = el(`
+      <button class="nav-item ${state.tab===item.key?'active':''}" data-tab="${item.key}">
+        ${ICONS[item.icon]}<span>${item.label}</span>
+        ${count!==null ? `<span class="nav-count">${count}</span>` : ''}
+      </button>
+    `);
+    btn.addEventListener('click', ()=>{ state.tab=item.key; document.getElementById('sidebar').classList.remove('open'); render(); });
+    nav.appendChild(btn);
+  });
+}
+
+/* =========================================================
+   RENDER ROOT
+========================================================= */
+function render(){
+  if(!state.session) return;
+  renderNav();
+  const v = document.getElementById('view');
+  v.innerHTML = '';
+  if(state.tab==='resumen') v.appendChild(renderResumen());
+  else if(state.tab==='documentos') v.appendChild(lockOr('documentos', renderDocumentos));
+  else if(state.tab==='usuarios') v.appendChild(renderUsuarios());
+  else if(state.tab==='configuracion') v.appendChild(renderConfiguracion());
+  else v.appendChild(lockOr(state.tab, renderCatalog));
+}
+function lockOr(catKey, fn){
+  if(!canView(catKey)){
+    return el(`<div class="lock-msg">${ICONS.shield}<p>No tienes acceso a este catálogo todavía.<br>Pide al administrador del sistema que te asigne permisos.</p></div>`);
+  }
+  return fn(catKey);
+}
+
+/* =========================================================
+   GENERIC LIST MODAL (drill-down)
+========================================================= */
+function showListModal(title, columns, rows, emptyMsg){
+  document.getElementById('modalOverlay')._confirmReject = null;
+  document.getElementById('modalTitle').textContent = title;
+  const body = document.getElementById('modalBody');
+  body.innerHTML='';
+  const tw = el(`<div class="table-scroll"><table><thead><tr>${columns.map(c=>`<th>${esc(c.label)}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`);
+  const tbody = tw.querySelector('tbody');
+  if(rows.length===0){
+    tbody.appendChild(el(`<tr class="empty-row"><td colspan="${columns.length}">${esc(emptyMsg||'Sin resultados.')}</td></tr>`));
+  }else{
+    rows.forEach(r=>{
+      const tr = el('<tr></tr>');
+      columns.forEach(c=>{
+        const td = document.createElement('td');
+        td.innerHTML = c.render ? c.render(r) : esc(r[c.key]==null?'—':r[c.key]);
+        if(c.mono) td.classList.add('mono');
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+  }
+  body.appendChild(tw);
+  const foot = document.getElementById('modalFoot');
+  foot.innerHTML='';
+  foot.appendChild(el(`<button class="btn" id="modalCloseBtn">Cerrar</button>`));
+  foot.querySelector('#modalCloseBtn').addEventListener('click', closeModal);
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+document.getElementById('modalClose').addEventListener('click', ()=>{
+  const ov = document.getElementById('modalOverlay');
+  if(ov._confirmReject){ const fn = ov._confirmReject; ov._confirmReject = null; fn(); }
+  else closeModal();
+});
+document.getElementById('modalOverlay').addEventListener('click', (e)=>{
+  if(e.target.id!=='modalOverlay') return;
+  const ov = document.getElementById('modalOverlay');
+  if(ov._confirmReject){ const fn = ov._confirmReject; ov._confirmReject = null; fn(); }
+  else closeModal();
+});
+
+/* =========================================================
+   RESUMEN (con drill-down por tarjeta)
+========================================================= */
+function renderResumen(){
+  const docs = state.data.documentos;
+  const bancos = state.data.bancos;
+  const porCobrar = docs.filter(d=>d.tipoRelacion==='Por cobrar');
+  const porPagar = docs.filter(d=>d.tipoRelacion==='Por pagar');
+  const pend = arr => arr.filter(d=>d.estado!=='Pagado');
+  const sum = arr => arr.reduce((s,d)=>s+(Number(d.total)||0),0);
+  const today = todayISO();
+  const saldoTotal = bancos.reduce((s,b)=>s+(Number(b.saldo)||0),0);
+
+  const pendientes = pend(docs).filter(d=>d.fechaVencimiento);
+  const porVencerTodos = pendientes.filter(d=>d.fechaVencimiento >= today);
+  const vencidosTodos = pendientes.filter(d=>d.fechaVencimiento < today);
+
+  function diasEntre(a,b){ return Math.round((new Date(b+'T00:00:00') - new Date(a+'T00:00:00'))/86400000); }
+
+  const bucketsPorVencer = [
+    {key:'v7', label:'Vence en 7 días', desde:0, hasta:7},
+    {key:'v15', label:'Vence en 15 días', desde:8, hasta:15},
+    {key:'v30', label:'Vence en 30 días', desde:16, hasta:30},
+    {key:'vmas', label:'Vence en más de 30 días', desde:31, hasta:Infinity},
+  ].map(b=>{
+    const rows = porVencerTodos.filter(d=>{ const n = diasEntre(today, d.fechaVencimiento); return n>=b.desde && n<=b.hasta; });
+    return Object.assign({}, b, {rows});
+  });
+  const bucketsVencidos = [
+    {key:'a7', label:'Vencido hace 7 días', desde:0, hasta:7},
+    {key:'a15', label:'Vencido hace 15 días', desde:8, hasta:15},
+    {key:'a30', label:'Vencido hace 30 días', desde:16, hasta:30},
+    {key:'amas', label:'Vencido hace más de 30 días', desde:31, hasta:Infinity},
+  ].map(b=>{
+    const rows = vencidosTodos.filter(d=>{ const n = diasEntre(d.fechaVencimiento, today); return n>=b.desde && n<=b.hasta; });
+    return Object.assign({}, b, {rows});
+  });
+
+  const docCols = [
+    {key:'tipoRelacion', label:'Relación', render:d=>relacionChip(d.tipoRelacion)},
+    {key:'nombre', label:'Contraparte'},
+    {key:'rfc', label:'RFC', mono:true},
+    {key:'serieFolio', label:'Serie-Folio', mono:true, render:d=>esc(d.serie||'')+(d.serie?'-':'')+esc(d.folio||'')},
+    {key:'fechaVencimiento', label:'Vence', render:d=>fmtDate(d.fechaVencimiento)},
+    {key:'total', label:'Total', render:d=>fmtMoney(d.total)},
+  ];
+  const bancoCols = [
+    {key:'nombreBanco', label:'Banco'},
+    {key:'numCuenta', label:'Cuenta', mono:true},
+    {key:'saldo', label:'Saldo', render:b=>fmtMoney(b.saldo)},
+  ];
+
+  const wrap = el('<div></div>');
+  wrap.appendChild(el(`
+    <div class="topbar">
+      <div><h1>Resumen</h1><p>Vista general de proveedores, clientes, bancos y documentos administrativos. Haz clic en una tarjeta para ver el detalle.</p></div>
+      <div class="topbar-actions">
+        <button class="btn" id="btnRefresh">${ICONS.refresh} Actualizar</button>
+        ${exportDropdownHtml('exportResumen')}
+      </div>
+    </div>
+  `));
+  wrap.querySelector('#btnRefresh').addEventListener('click', loadAll);
+  wireExportDropdown(wrap, 'exportResumen', ()=>({
+    filenameBase:'resumen_cuentas',
+    title:'Resumen de cuentas',
+    sheets:[
+      {name:'Resumen', columns:[{key:'concepto',label:'Concepto'},{key:'valor',label:'Valor'}], rows:[
+        {concepto:'Por cobrar pendiente', valor:fmtMoney(sum(pend(porCobrar)))},
+        {concepto:'Por pagar pendiente', valor:fmtMoney(sum(pend(porPagar)))},
+        {concepto:'Saldo bancario total', valor:fmtMoney(saldoTotal)},
+        ...bucketsPorVencer.map(b=>({concepto:b.label, valor:b.rows.length})),
+        ...bucketsVencidos.map(b=>({concepto:b.label, valor:b.rows.length})),
+      ]},
+      ...bucketsPorVencer.map(b=>({name:b.label.slice(0,31), columns:docCols, rows:b.rows})),
+      ...bucketsVencidos.map(b=>({name:b.label.slice(0,31), columns:docCols, rows:b.rows})),
+    ]
+  }));
+
+  wrap.appendChild(el(`
+    <div class="cards">
+      <div class="card clickable" id="cardCxc"><div class="k">Por cobrar (pendiente)</div><div class="v tag-cxc">${fmtMoney(sum(pend(porCobrar)))}</div><div class="sub">${pend(porCobrar).length} documento(s) · ver listado</div></div>
+      <div class="card clickable" id="cardCxp"><div class="k">Por pagar (pendiente)</div><div class="v tag-cxp">${fmtMoney(sum(pend(porPagar)))}</div><div class="sub">${pend(porPagar).length} documento(s) · ver listado</div></div>
+      <div class="card ${bancos.length?'clickable':''}" id="cardSaldo"><div class="k">Saldo bancario total</div><div class="v">${fmtMoney(saldoTotal)}</div><div class="sub">${bancos.length} cuenta(s)${bancos.length?' · ver detalle':''}</div></div>
+    </div>
+  `));
+
+  wrap.querySelector('#cardCxc').addEventListener('click', ()=>showListModal('Por cobrar — pendiente', docCols, pend(porCobrar).sort((a,b)=>(a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')), 'No hay cuentas por cobrar pendientes.'));
+  wrap.querySelector('#cardCxp').addEventListener('click', ()=>showListModal('Por pagar — pendiente', docCols, pend(porPagar).sort((a,b)=>(a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')), 'No hay cuentas por pagar pendientes.'));
+  if(bancos.length) wrap.querySelector('#cardSaldo').addEventListener('click', ()=>showListModal('Saldos bancarios', bancoCols, bancos, 'No hay cuentas bancarias registradas.'));
+
+  wrap.appendChild(el(`<div class="section-title">Documentos por vencer</div>`));
+  const gridVencer = el(`<div class="cards"></div>`);
+  bucketsPorVencer.forEach(b=>{
+    const card = el(`<div class="card ${b.rows.length?'clickable':''}"><div class="k">${esc(b.label)}</div><div class="v tag-warn">${b.rows.length}</div><div class="sub">${fmtMoney(b.rows.reduce((s,d)=>s+(Number(d.total)||0),0))}</div></div>`);
+    if(b.rows.length) card.addEventListener('click', ()=>showListModal(b.label, docCols, b.rows.sort((a,c)=>(a.fechaVencimiento||'').localeCompare(c.fechaVencimiento||'')), 'Sin documentos en este rango.'));
+    gridVencer.appendChild(card);
+  });
+  wrap.appendChild(gridVencer);
+
+  wrap.appendChild(el(`<div class="section-title">Documentos vencidos</div>`));
+  const gridVencidos = el(`<div class="cards"></div>`);
+  bucketsVencidos.forEach(b=>{
+    const card = el(`<div class="card ${b.rows.length?'clickable':''}"><div class="k">${esc(b.label)}</div><div class="v tag-danger">${b.rows.length}</div><div class="sub">${fmtMoney(b.rows.reduce((s,d)=>s+(Number(d.total)||0),0))}</div></div>`);
+    if(b.rows.length) card.addEventListener('click', ()=>showListModal(b.label, docCols, b.rows.sort((a,c)=>(a.fechaVencimiento||'').localeCompare(c.fechaVencimiento||'')), 'Sin documentos en este rango.'));
+    gridVencidos.appendChild(card);
+  });
+  wrap.appendChild(gridVencidos);
+
+  const proximos = docs.filter(d=>d.estado!=='Pagado' && d.fechaVencimiento).sort((a,b)=>(a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')).slice(0,8);
+  wrap.appendChild(el(`<div class="section-title">Próximos vencimientos</div>`));
+  const tw = el(`<div class="table-wrap"><div class="table-scroll"><table>
+    <thead><tr><th>Vence</th><th>Tipo</th><th>Contraparte</th><th>Serie-Folio</th><th>Total</th></tr></thead>
+    <tbody></tbody></table></div></div>`);
+  const tbody = tw.querySelector('tbody');
+  if(proximos.length===0){
+    tbody.appendChild(el(`<tr class="empty-row"><td colspan="5">No hay documentos pendientes con fecha de vencimiento.</td></tr>`));
+  }else{
+    proximos.forEach(d=>{
+      tbody.appendChild(el(`
+        <tr>
+          <td>${fmtDate(d.fechaVencimiento)}</td>
+          <td>${relacionChip(d.tipoRelacion)}</td>
+          <td>${esc(d.nombre||'—')} <span class="mono" style="color:var(--ink-faint);font-size:11.5px;">${esc(d.rfc||'')}</span></td>
+          <td class="mono">${esc(d.serie||'')}${d.serie?'-':''}${esc(d.folio||'')}</td>
+          <td>${fmtMoney(d.total)}</td>
+        </tr>
+      `));
+    });
+  }
+  wrap.appendChild(tw);
+  return wrap;
+}
+
+function relacionChip(tipo){
+  if(tipo==='Por cobrar') return `<span class="chip chip-cxc">Por cobrar</span>`;
+  if(tipo==='Por pagar') return `<span class="chip chip-cxp">Por pagar</span>`;
+  return `<span class="chip chip-none">Sin clasificar</span>`;
+}
+
+/* =========================================================
+   EXPORT (Excel / PDF / Correo)
+========================================================= */
+function exportDropdownHtml(id){
+  return `<div style="position:relative;">
+    <button class="btn" id="${id}Btn">${ICONS.download} Exportar ${ICONS.chev}</button>
+    <div class="dropdown" id="${id}Menu">
+      <button data-act="xlsx">${ICONS.download} Descargar Excel</button>
+      <button data-act="pdf">${ICONS.download} Descargar PDF</button>
+      <button data-act="mail">${ICONS.mail} Enviar por correo</button>
+    </div>
+  </div>`;
+}
+function wireExportDropdown(scope, id, getSpec){
+  const btn = scope.querySelector('#'+id+'Btn');
+  const menu = scope.querySelector('#'+id+'Menu');
+  btn.addEventListener('click', (e)=>{ e.stopPropagation(); closeAllDropdowns(); menu.classList.toggle('open'); });
+  menu.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      menu.classList.remove('open');
+      const spec = getSpec();
+      const act = b.getAttribute('data-act');
+      if(act==='xlsx') doExportExcel(spec);
+      else if(act==='pdf') doExportPDF(spec);
+      else if(act==='mail') doExportAndEmail(spec);
+    });
+  });
+}
+function sheetAOA(columns, rows){
+  const header = columns.map(c=>c.label);
+  const body = rows.map(r=> columns.map(c=> c.plain ? c.plain(r) : (c.render ? stripHtml(c.render(r)) : (r[c.key]==null?'':r[c.key])) ));
+  return [header, ...body];
+}
+function stripHtml(html){ const d = document.createElement('div'); d.innerHTML = html; return d.textContent||''; }
+
+function doExportExcel(spec){
+  try{
+    const wb = XLSX.utils.book_new();
+    spec.sheets.forEach(sheet=>{
+      const aoa = sheetAOA(sheet.columns, sheet.rows);
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      XLSX.utils.book_append_sheet(wb, ws, sheet.name.slice(0,31));
+    });
+    XLSX.writeFile(wb, spec.filenameBase+'.xlsx');
+    toast('Excel descargado.');
+  }catch(e){ toast('No se pudo generar el Excel: '+(e&&e.message||''), true); }
+}
+function doExportPDF(spec){
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({orientation:'landscape'});
+    let first = true;
+    spec.sheets.forEach(sheet=>{
+      if(!first) doc.addPage();
+      first = false;
+      doc.setFontSize(13);
+      doc.text(spec.title+' — '+sheet.name, 14, 14);
+      doc.setFontSize(9);
+      doc.text(new Date().toLocaleString('es-MX'), 14, 20);
+      const aoa = sheetAOA(sheet.columns, sheet.rows);
+      doc.autoTable({ head:[aoa[0]], body:aoa.slice(1), startY:26, styles:{fontSize:8}, headStyles:{fillColor:[255,85,102]} });
+    });
+    doc.save(spec.filenameBase+'.pdf');
+    toast('PDF descargado.');
+  }catch(e){ toast('No se pudo generar el PDF: '+(e&&e.message||''), true); }
+}
+function doExportAndEmail(spec){
+  doExportPDF(spec);
+  const subject = encodeURIComponent(spec.title);
+  const body = encodeURIComponent(
+    'Adjunto el reporte "'+spec.title+'" generado el '+new Date().toLocaleString('es-MX')+'.\n\n'+
+    'El archivo PDF se acaba de descargar a tu computadora — adjúntalo manualmente a este correo antes de enviarlo (el navegador no permite adjuntarlo de forma automática por seguridad).'
+  );
+  window.location.href = 'mailto:?subject='+subject+'&body='+body;
+  toast('Se descargó el PDF. Se abrió tu correo — recuerda adjuntar el archivo.');
+}
+
+/* =========================================================
+   GENERIC CATALOG VIEW (proveedores / clientes / bancos)
+========================================================= */
+function renderCatalog(key){
+  const cfg = CATALOGS[key];
+  const editable = canEdit(key);
+  const columns = cfg.columns.map(c=>({
+    key:c[0], label:c[1],
+    render: c[0]==='saldo' ? (r)=>fmtMoney(r.saldo) : (c[0]==='fechaSaldoInicial' ? (r)=>fmtDate(r.fechaSaldoInicial) : undefined),
+    dateFilter: c[0]==='fechaSaldoInicial' ? true : undefined,
+    sortValue: c[0]==='saldo' ? (r)=>Number(r.saldo)||0 : (c[0]==='id' ? (r)=>Number(r.id)||0 : (c[0]==='diasCredito' ? (r)=>Number(r.diasCredito)||0 : (c[0]==='fechaSaldoInicial' ? (r)=>r.fechaSaldoInicial||'' : undefined))),
+  }));
+  columns.push({key:'createdAt', label:'Fecha de alta', dateFilter:true, render:(r)=>fmtDate(dateOnly(r.createdAt)), sortValue:(r)=>r.createdAt||''});
+  const wrap = el('<div></div>');
+  wrap.appendChild(el(`
+    <div class="topbar">
+      <div>
+        <h1>${cfg.title}</h1>
+        <p>Catálogo ${key==='bancos'?'de cuentas bancarias':'de '+cfg.table}. ${editable? 'Los registros nuevos reciben un ID consecutivo automático. Haz clic en un encabezado para ordenar, o escribe/elige en la fila de filtros para acotar.' : 'Tienes acceso de solo lectura a este catálogo.'}</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" id="btnRefresh">${ICONS.refresh}</button>
+        ${exportDropdownHtml('exportCat')}
+        ${editable ? `<button class="btn btn-primary" id="btnNew">${ICONS.plus} Nuevo ${cfg.singular}</button>` : ''}
+      </div>
+    </div>
+  `));
+
+  const tableWrap = el(`
+    <div class="table-wrap">
+      <div id="pagTop"></div>
+      <div class="table-scroll"><table>
+        <thead></thead>
+        <tbody id="tbody"></tbody>
+      </table></div>
+    </div>
+  `);
+  wrap.appendChild(tableWrap);
+
+  if(editable) wrap.querySelector('#btnNew').addEventListener('click', ()=> openDrawer(key, null));
+  wrap.querySelector('#btnRefresh').addEventListener('click', ()=>loadCatalog(key));
+  wireExportDropdown(wrap, 'exportCat', ()=>({
+    filenameBase:key, title:cfg.title,
+    sheets:[{name:cfg.title.slice(0,31), columns, rows: currentFilteredRows()}]
+  }));
+
+  function currentFilteredRows(){
+    return applyFilterSort(key, state.data[key], columns);
+  }
+
+  function buildHead(){
+    const thead = tableWrap.querySelector('thead');
+    thead.innerHTML='';
+    const {headRow, filterRow} = renderSortableHead(key, columns, {trailing: editable?'':undefined});
+    thead.appendChild(headRow);
+    thead.appendChild(filterRow);
+  }
+
+  function renderRows(){
+    const filtered = currentFilteredRows();
+    const info = paginateRows(key, filtered);
+
+    const pagTop = tableWrap.querySelector('#pagTop');
+    pagTop.innerHTML='';
+    pagTop.appendChild(renderPaginationBar(key, info, renderRows));
+
+    const tbody = tableWrap.querySelector('#tbody');
+    tbody.innerHTML='';
+    const rows = info.pageRows;
+    const colspan = columns.length + (editable?1:0);
+    if(!state.loaded[key]){
+      tbody.appendChild(el(`<tr class="empty-row"><td colspan="${colspan}">Cargando…</td></tr>`));
+      return;
+    }
+    if(rows.length===0){
+      tbody.appendChild(el(`<tr class="empty-row"><td colspan="${colspan}">${state.data[key].length===0 ? 'Todavía no hay registros.'+(editable?' Crea el primero con "Nuevo '+cfg.singular+'".':'') : 'No hay resultados para tu filtro.'}</td></tr>`));
+      return;
+    }
+    rows.forEach(r=>{
+      const tr = el('<tr></tr>');
+      columns.forEach(col=>{
+        const isMono = ['rfc','numCuenta','clabe','id'].includes(col.key);
+        const td = document.createElement('td');
+        td.className = isMono ? 'mono' : '';
+        const val = col.render ? col.render(r) : (r[col.key]==null || r[col.key]==='' ? '—' : r[col.key]);
+        if(col.render) td.innerHTML = val; else td.textContent = val;
+        tr.appendChild(td);
+      });
+      if(editable){
+        const actions = el(`<td><div class="cell-actions">
+          <button class="icon-btn" data-act="edit" title="Editar">${ICONS.edit}</button>
+          <button class="icon-btn danger" data-act="del" title="Eliminar">${ICONS.trash}</button>
+        </div></td>`);
+        actions.querySelector('[data-act=edit]').addEventListener('click', ()=> openDrawer(key, r.id));
+        actions.querySelector('[data-act=del]').addEventListener('click', ()=> confirmDelete(key, r));
+        tr.appendChild(actions);
+      }
+      tbody.appendChild(tr);
+    });
+  }
+  renderTbodyRef.fn = renderRows;
+  buildHead();
+  renderRows();
+  return wrap;
+}
+
+async function confirmDelete(key, record){
+  const cfg = CATALOGS[key];
+  const label = record.nombre || record.nombreBanco || ('#'+record.id);
+  const ok = await confirmModal(
+    'Eliminar registro',
+    `Estás a punto de eliminar <b>"${esc(label)}"</b> del catálogo de ${esc(cfg.title.toLowerCase())}.<br><br>Esta acción no se puede deshacer.`,
+    'Sí, eliminar'
+  );
+  if(!ok) return;
+  try{
+    const {error} = await sb.from(cfg.table).delete().eq('id', record.id);
+    if(error) throw error;
+    toast('Registro eliminado.');
+    loadCatalog(key);
+  }catch(e){ toast('No se pudo eliminar: '+(e&&e.message||''), true); }
+}
+
+/* =========================================================
+   DRAWER (create/edit for proveedores, clientes, bancos)
+========================================================= */
+function openDrawer(catalogKey, id){
+  const cfg = CATALOGS[catalogKey];
+  const editing = id!=null ? state.data[catalogKey].find(r=>r.id===id) : null;
+
+  document.getElementById('drawerTitle').textContent = editing ? `Editar ${cfg.singular}` : `Nuevo ${cfg.singular}`;
+  const body = document.getElementById('drawerBody');
+  body.innerHTML='';
+
+  if(editing){
+    body.appendChild(el(`<div class="field"><label>${cfg.idLabel} (asignado por el sistema)</label><input class="mono" value="${esc(editing.id)}" disabled></div>`));
+  }
+
+  const inputs = {};
+  let i=0;
+  while(i < cfg.fields.length){
+    const f = cfg.fields[i];
+    if(f.half && cfg.fields[i+1] && cfg.fields[i+1].half){
+      const f2 = cfg.fields[i+1];
+      const row = el(`<div class="field-2col"></div>`);
+      row.appendChild(buildField(f, editing, inputs));
+      row.appendChild(buildField(f2, editing, inputs));
+      body.appendChild(row);
+      i+=2;
+    }else{
+      body.appendChild(buildField(f, editing, inputs));
+      i+=1;
+    }
+  }
+
+  document.getElementById('drawerSave').onclick = async ()=>{
+    const payload = {};
+    const missing = [];
+    cfg.fields.forEach(f=>{
+      let val = inputs[f.key].value;
+      if(f.type==='number'){ val = val===''? null : Number(val); }
+      if(f.upper && typeof val==='string'){ val = val.toUpperCase().trim(); }
+      if(typeof val==='string') val = val.trim();
+      if(f.required && (val===''||val==null)) missing.push(f.label);
+      payload[f.key]=val;
+    });
+    if(missing.length){ toast('Guardado con datos faltantes: '+missing.join(', '), true); }
+
+    const row = camelToRow(payload, cfg.fields);
+    const saveBtn = document.getElementById('drawerSave');
+    saveBtn.disabled = true; saveBtn.textContent='Guardando…';
+    try{
+      if(editing){
+        const {error} = await sb.from(cfg.table).update(row).eq('id', editing.id);
+        if(error) throw error;
+        toast(cfg.singular.charAt(0).toUpperCase()+cfg.singular.slice(1)+' actualizado.');
+      }else{
+        const {data, error} = await sb.from(cfg.table).insert(row).select().single();
+        if(error) throw error;
+        toast(cfg.singular.charAt(0).toUpperCase()+cfg.singular.slice(1)+' creado con ID '+data.id+'.');
+      }
+      closeDrawer();
+      loadCatalog(catalogKey);
+    }catch(e){
+      toast('No se pudo guardar: '+(e&&e.message||''), true);
+    }finally{
+      saveBtn.disabled=false; saveBtn.textContent='Guardar';
+    }
+  };
+  showDrawer();
+}
+
+function buildField(f, editing, inputs){
+  const val = editing ? (editing[f.key]==null?'':editing[f.key]) : '';
+  const wrap = el(`<div class="field"><label>${esc(f.label)}${f.required?' <span class="req">*</span>':''}</label></div>`);
+  let input;
+  if(f.type==='textarea'){ input = el(`<textarea></textarea>`); input.value = val; wrap.appendChild(input); }
+  else if(f.type==='select'){ input = el(`<select>${f.options.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`); input.value = val; wrap.appendChild(input); }
+  else if(f.type==='bankSelect'){
+    const container = el(`<div style="position:relative;"></div>`);
+    input = el(`<input type="text" autocomplete="off" placeholder="Escribe para buscar un banco…">`);
+    input.value = val;
+    const list = el(`<div style="position:absolute; top:calc(100% + 4px); left:0; right:0; max-height:220px; overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--shadow); z-index:30; display:none;"></div>`);
+    function renderBankList(){
+      const q = input.value.trim().toLowerCase();
+      const matches = BANCOS_CATALOGO.filter(b=> !q || b.n.toLowerCase().includes(q) || b.r.toLowerCase().includes(q) || b.c.includes(q)).slice(0,40);
+      list.innerHTML='';
+      if(matches.length===0){ list.style.display='none'; return; }
+      matches.forEach(b=>{
+        const item = el(`<div style="padding:8px 10px; cursor:pointer; font-size:12.5px; border-bottom:1px solid var(--line-soft);">
+          <div style="font-weight:600;">${esc(b.n)}</div>
+          <div style="color:var(--ink-faint); font-size:11px;">${esc(b.c)} · ${esc(b.r)}</div>
+        </div>`);
+        item.addEventListener('mousedown', (e)=>{ e.preventDefault(); input.value = b.n; list.style.display='none'; });
+        item.addEventListener('mouseenter', ()=>{ item.style.background='var(--surface-2)'; });
+        item.addEventListener('mouseleave', ()=>{ item.style.background='transparent'; });
+        list.appendChild(item);
+      });
+      list.style.display='block';
+    }
+    input.addEventListener('focus', renderBankList);
+    input.addEventListener('input', renderBankList);
+    input.addEventListener('blur', ()=>{ setTimeout(()=>{ list.style.display='none'; }, 150); });
+    container.appendChild(input);
+    container.appendChild(list);
+    wrap.appendChild(container);
+  }
+  else{
+    input = el(`<input type="${f.type==='number'?'number':f.type==='email'?'email':'text'}" ${f.type==='number'?'step="0.01"':''}>`);
+    input.value = val;
+    if(f.mono) input.classList.add('mono');
+    wrap.appendChild(input);
+  }
+  inputs[f.key]=input;
+  return wrap;
+}
+
+function showDrawer(){ document.getElementById('overlay').classList.add('open'); document.getElementById('drawer').classList.add('open'); }
+function closeDrawer(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('drawer').classList.remove('open'); }
+document.getElementById('overlay').addEventListener('click', closeDrawer);
+document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+document.getElementById('drawerCancel').addEventListener('click', closeDrawer);
+document.getElementById('btnMenu').addEventListener('click', ()=>document.getElementById('sidebar').classList.toggle('open'));
+
+/* =========================================================
+   DOCUMENTOS ADMINISTRATIVOS
+========================================================= */
+function renderDocumentos(){
+  const editable = canEdit('documentos');
+  const wrap = el('<div></div>');
+  wrap.appendChild(el(`
+    <div class="topbar">
+      <div>
+        <h1>Documentos administrativos</h1>
+        <p>Carga uno o varios XML (CFDI). Los datos fiscales se extraen automáticamente; el sistema clasifica cada documento como cuenta por cobrar o por pagar y, si el proveedor o cliente no existe todavía, crea su registro en el catálogo tomando como base la información del propio XML (RFC, nombre, régimen fiscal, CP). Haz clic en un encabezado para ordenar, o escribe en la fila de filtros para acotar.${editable?'':' Tienes acceso de solo lectura.'}</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" id="btnRefresh">${ICONS.refresh} Actualizar</button>
+        ${exportDropdownHtml('exportDocs')}
+      </div>
+    </div>
+  `));
+  wrap.querySelector('#btnRefresh').addEventListener('click', loadDocumentos);
+
+  if(!state.config.rfcEmpresa){
+    wrap.appendChild(el(`<div class="banner">${ICONS.gear} Todavía no configuras el RFC de tu empresa, así que el sistema no puede crear proveedores o clientes nuevos automáticamente al cargar un XML.${state.isAdmin ? ' Ve a "Configuración" en el menú para establecerlo.' : ' Pide al administrador que lo configure.'}</div>`));
+  }
+
+  if(editable){
+    const uz = el(`
+      <div class="upload-zone">
+        ${ICONS.upload}
+        <div style="margin-top:8px;"><strong>Cargar XML</strong> — selecciona uno o varios archivos .xml</div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-primary" id="btnPickXml">Elegir archivos</button>
+          <input type="file" id="fileXml" accept=".xml,text/xml" multiple>
+        </div>
+        <div class="import-summary" id="importSummary"></div>
+      </div>
+    `);
+    wrap.appendChild(uz);
+    uz.querySelector('#btnPickXml').addEventListener('click', ()=>uz.querySelector('#fileXml').click());
+    uz.querySelector('#fileXml').addEventListener('change', (e)=>handleXmlFiles(e.target.files, uz.querySelector('#importSummary')));
+    ['dragover','dragenter'].forEach(ev=>uz.addEventListener(ev, e=>{e.preventDefault(); uz.style.background='var(--accent-soft)';}));
+    ['dragleave','drop'].forEach(ev=>uz.addEventListener(ev, e=>{e.preventDefault(); uz.style.background='';}));
+    uz.addEventListener('drop', e=>{ const files = e.dataTransfer.files; if(files && files.length) handleXmlFiles(files, uz.querySelector('#importSummary')); });
+  }
+
+  const bulkBar = el(`
+    <div class="table-wrap" id="bulkBar" style="display:none; margin-bottom:12px; padding:10px 14px; display:none; align-items:center; gap:10px; flex-wrap:wrap;">
+      <b id="bulkCount" style="font-size:13px;"></b>
+      <button class="btn btn-sm" id="btnBulkEdit">${ICONS.edit} Editar en grupo</button>
+      <button class="btn btn-sm" id="btnBulkDelete" style="color:var(--danger); border-color:var(--danger-soft);">${ICONS.trash} Eliminar seleccionados</button>
+      <button class="btn btn-sm btn-ghost" id="btnBulkClear">Cancelar selección</button>
+    </div>
+  `);
+  wrap.appendChild(bulkBar);
+
+  const tableWrap = el(`
+    <div class="table-wrap">
+      <div id="pagTop"></div>
+      <div class="table-scroll"><table>
+        <thead></thead>
+        <tbody id="tbody"></tbody>
+      </table></div>
+    </div>
+  `);
+  wrap.appendChild(tableWrap);
+
+  const docCols = [
+    {key:'tipoRelacion', label:'Relación', render:d=>relacionChip(d.tipoRelacion)},
+    {key:'tipo', label:'Tipo', render:d=>TIPO_COMPROBANTE[d.tipo]||d.tipo||''},
+    {key:'serieFolio', label:'Serie-Folio', render:d=>(d.serie||'')+(d.serie?'-':'')+(d.folio||''), sortValue:d=>(d.serie||'')+'-'+(d.folio||'')},
+    {key:'ordenCompra', label:'Orden de compra'},
+    {key:'fecha', label:'Fecha CFDI', dateFilter:true, render:d=>fmtDate(d.fecha?String(d.fecha).slice(0,10):''), sortValue:d=>d.fecha||''},
+    {key:'nombre', label:'Contraparte'},
+    {key:'rfc', label:'RFC'},
+    {key:'metodoForma', label:'Método/Forma', render:d=>(d.metodoPago||'')+' / '+(d.formaPago||'')},
+    {key:'usoCFDI', label:'Uso CFDI'},
+    {key:'fechaIngreso', label:'Ingreso', dateFilter:true, render:d=>fmtDate(d.fechaIngreso), sortValue:d=>d.fechaIngreso||''},
+    {key:'fechaVencimiento', label:'Vencimiento', dateFilter:true, render:d=>fmtDate(d.fechaVencimiento), sortValue:d=>d.fechaVencimiento||''},
+    {key:'total', label:'Total', render:d=>fmtMoney(d.total), sortValue:d=>Number(d.total)||0},
+    {key:'estado', label:'Estado'},
+  ];
+  wireExportDropdown(wrap, 'exportDocs', ()=>({
+    filenameBase:'documentos_administrativos', title:'Documentos administrativos',
+    sheets:[{name:'Documentos', columns:docCols, rows: currentFilteredDocs()}]
+  }));
+
+  function currentFilteredDocs(){
+    return applyFilterSort('documentos', state.data.documentos, docCols);
+  }
+
+  function updateBulkBar(){
+    const n = state.selectedDocs.size;
+    bulkBar.style.display = n>0 ? 'flex' : 'none';
+    bulkBar.querySelector('#bulkCount').textContent = n+' documento(s) seleccionado(s)';
+  }
+  bulkBar.querySelector('#btnBulkClear').addEventListener('click', ()=>{ state.selectedDocs.clear(); render(); });
+  bulkBar.querySelector('#btnBulkDelete').addEventListener('click', ()=>bulkDeleteDocs());
+  bulkBar.querySelector('#btnBulkEdit').addEventListener('click', ()=>openBulkEditDrawer());
+
+  function getPageInfo(){
+    return paginateRows('documentos', currentFilteredDocs());
+  }
+
+  function buildHead(){
+    const thead = tableWrap.querySelector('thead');
+    thead.innerHTML='';
+    const {headRow, filterRow} = renderSortableHead('documentos', docCols, {
+      leading: editable ? '<input type="checkbox" id="selectAllDocs" title="Selecciona solo lo mostrado en esta página">' : undefined,
+      trailing: editable ? '' : undefined,
+    });
+    thead.appendChild(headRow);
+    thead.appendChild(filterRow);
+    if(editable){
+      const selectAll = thead.querySelector('#selectAllDocs');
+      selectAll.addEventListener('change', ()=>{
+        const pageRows = getPageInfo().pageRows;
+        if(selectAll.checked) pageRows.forEach(d=>state.selectedDocs.add(d.uuid));
+        else pageRows.forEach(d=>state.selectedDocs.delete(d.uuid));
+        updateBulkBar();
+        renderRows();
+      });
+    }
+  }
+
+  function renderRows(){
+    const info = getPageInfo();
+    const pagTop = tableWrap.querySelector('#pagTop');
+    pagTop.innerHTML='';
+    pagTop.appendChild(renderPaginationBar('documentos', info, renderRows));
+
+    const pageRows = info.pageRows;
+    if(editable){
+      const selectAll = tableWrap.querySelector('#selectAllDocs');
+      if(selectAll) selectAll.checked = pageRows.length>0 && pageRows.every(d=>state.selectedDocs.has(d.uuid));
+    }
+
+    const tbody = tableWrap.querySelector('#tbody');
+    tbody.innerHTML='';
+    const colspan = docCols.length + (editable?2:0);
+    if(!state.loaded.documentos){ tbody.appendChild(el(`<tr class="empty-row"><td colspan="${colspan}">Cargando…</td></tr>`)); return; }
+    if(pageRows.length===0){
+      tbody.appendChild(el(`<tr class="empty-row"><td colspan="${colspan}">${state.data.documentos.length===0 ? 'Todavía no se ha cargado ningún XML.' : 'No hay resultados para tu filtro.'}</td></tr>`));
+      return;
+    }
+    pageRows.forEach(d=>{
+      const tr = el('<tr></tr>');
+      if(editable){
+        const tdChk = el(`<td><input type="checkbox" ${state.selectedDocs.has(d.uuid)?'checked':''}></td>`);
+        tdChk.querySelector('input').addEventListener('change', (e)=>{
+          if(e.target.checked) state.selectedDocs.add(d.uuid); else state.selectedDocs.delete(d.uuid);
+          updateBulkBar();
+          const hAll = tableWrap.querySelector('#selectAllDocs');
+          if(hAll) hAll.checked = pageRows.every(x=>state.selectedDocs.has(x.uuid));
+        });
+        tr.appendChild(tdChk);
+      }
+      docCols.forEach(col=>{
+        const td = document.createElement('td');
+        if(col.key==='rfc' || col.key==='serieFolio') td.className='mono';
+        const val = col.render ? col.render(d) : (d[col.key]==null?'—':d[col.key]);
+        if(col.render) td.innerHTML = val; else td.textContent = (val==null||val==='') ? '—' : val;
+        tr.appendChild(td);
+      });
+      if(editable){
+        const estadoTd = tr.children[tr.children.length-1];
+        estadoTd.innerHTML='';
+        const estadoBtn = el(`<button class="chip chip-btn ${d.estado==='Pagado'?'chip-pagado':'chip-pend'}">${d.estado==='Pagado'?'Pagado':'Pendiente'}</button>`);
+        estadoBtn.addEventListener('click', ()=>toggleEstado(d));
+        estadoTd.appendChild(estadoBtn);
+        const actionsTd = document.createElement('td');
+        const actionsDiv = el(`<div class="cell-actions">
+          <button class="icon-btn" data-act="edit" title="Editar">${ICONS.edit}</button>
+          <button class="icon-btn danger" data-act="del" title="Eliminar">${ICONS.trash}</button>
+        </div>`);
+        actionsDiv.querySelector('[data-act=edit]').addEventListener('click', ()=>openDocDrawer(d));
+        actionsDiv.querySelector('[data-act=del]').addEventListener('click', ()=>confirmDeleteDoc(d));
+        actionsTd.appendChild(actionsDiv);
+        tr.appendChild(actionsTd);
+      }
+      tr.title = 'UUID: '+(d.uuid||'');
+      tbody.appendChild(tr);
+    });
+  }
+  renderTbodyRef.fn = renderRows;
+  buildHead();
+  renderRows();
+  updateBulkBar();
+  return wrap;
+}
+
+async function toggleEstado(d){
+  const nuevo = d.estado==='Pagado' ? 'Pendiente' : 'Pagado';
+  try{
+    const {error} = await sb.from('documentos').update({estado:nuevo}).eq('uuid', d.uuid);
+    if(error) throw error;
+    loadDocumentos();
+  }catch(e){ toast('No se pudo actualizar el estado: '+(e&&e.message||''), true); }
+}
+
+async function confirmDeleteDoc(d){
+  const ok = await confirmModal(
+    'Eliminar documento',
+    `Estás a punto de eliminar el documento <b>${esc(d.serie||'')}${d.serie?'-':''}${esc(d.folio||'')}</b> (UUID <span class="mono">${esc(d.uuid)}</span>).<br><br>Esta acción no se puede deshacer.`,
+    'Sí, eliminar'
+  );
+  if(!ok) return;
+  try{
+    const {error} = await sb.from('documentos').delete().eq('uuid', d.uuid);
+    if(error) throw error;
+    toast('Documento eliminado.');
+    loadDocumentos();
+  }catch(e){ toast('No se pudo eliminar: '+(e&&e.message||''), true); }
+}
+
+async function bulkDeleteDocs(){
+  const uuids = Array.from(state.selectedDocs);
+  if(uuids.length===0) return;
+  const ok = await confirmModal(
+    'Eliminar documentos seleccionados',
+    `Estás a punto de eliminar <b>${uuids.length} documento(s)</b> del sistema.<br><br>Esta acción no se puede deshacer y aplica a todos los documentos seleccionados.`,
+    'Sí, eliminar todos'
+  );
+  if(!ok) return;
+  try{
+    statusShow('Eliminando documentos… (0/'+uuids.length+')');
+    const CHUNK = 200;
+    let done=0;
+    for(let i=0;i<uuids.length;i+=CHUNK){
+      const slice = uuids.slice(i, i+CHUNK);
+      const {error} = await sb.from('documentos').delete().in('uuid', slice);
+      if(error) throw error;
+      done += slice.length;
+      statusUpdate(done, uuids.length, 'Eliminando documentos… ('+done+'/'+uuids.length+')');
+    }
+    state.selectedDocs.clear();
+    statusHide();
+    toast(uuids.length+' documento(s) eliminado(s).');
+    loadDocumentos();
+  }catch(e){ statusHide(0); toast('No se pudo completar la eliminación: '+(e&&e.message||''), true); }
+}
+
+function openBulkEditDrawer(){
+  const uuids = Array.from(state.selectedDocs);
+  if(uuids.length===0) return;
+  document.getElementById('drawerTitle').textContent = `Editar ${uuids.length} documento(s) en grupo`;
+  const body = document.getElementById('drawerBody');
+  body.innerHTML='';
+  body.appendChild(el(`<div class="hint" style="margin-bottom:14px;">Deja en blanco cualquier campo que no quieras cambiar. Los campos que llenes se aplicarán a los ${uuids.length} documentos seleccionados.</div>`));
+
+  const fRel = el(`<div class="field"><label>Relación</label><select><option value="">— No cambiar —</option><option value="Sin clasificar">Sin clasificar</option><option value="Por cobrar">Por cobrar</option><option value="Por pagar">Por pagar</option></select></div>`);
+  body.appendChild(fRel);
+  const fEstado = el(`<div class="field"><label>Estado</label><select><option value="">— No cambiar —</option><option value="Pendiente">Pendiente</option><option value="Pagado">Pagado</option></select></div>`);
+  body.appendChild(fEstado);
+  const fOC = el(`<div class="field"><label>Orden de compra</label><input placeholder="— No cambiar —"></div>`);
+  body.appendChild(fOC);
+  const fIngreso = el(`<div class="field"><label>Fecha de ingreso</label><input type="date"></div>`);
+  body.appendChild(fIngreso);
+  body.appendChild(el(`<div class="hint">Si cambias la fecha de ingreso, la fecha de vencimiento de cada documento se recalcula con los días de crédito de su proveedor o cliente correspondiente.</div>`));
+
+  document.getElementById('drawerSave').onclick = async ()=>{
+    const rel = fRel.querySelector('select').value;
+    const estado = fEstado.querySelector('select').value;
+    const oc = fOC.querySelector('input').value.trim();
+    const ingreso = fIngreso.querySelector('input').value;
+    if(!rel && !estado && !oc && !ingreso){ toast('No cambiaste ningún campo.', true); return; }
+    const saveBtn = document.getElementById('drawerSave');
+    saveBtn.disabled=true; saveBtn.textContent='Guardando…';
+    closeDrawer();
+    try{
+      statusShow('Actualizando documentos… (0/'+uuids.length+')');
+      let done=0;
+      for(const uuid of uuids){
+        const patch = {};
+        if(rel) patch.tipo_relacion = rel;
+        if(estado) patch.estado = estado;
+        if(oc) patch.orden_compra = oc;
+        if(ingreso){
+          const docLocal = state.data.documentos.find(x=>x.uuid===uuid);
+          const relForCalc = rel || (docLocal?docLocal.tipoRelacion:'');
+          const rfcForCalc = docLocal?docLocal.rfc:'';
+          const dias = lookupDiasCredito(relForCalc, (rfcForCalc||'').toUpperCase());
+          patch.fecha_ingreso = ingreso;
+          patch.fecha_vencimiento = dias!=null ? addDaysISO(ingreso, dias) : ingreso;
+        }
+        const {error} = await sb.from('documentos').update(patch).eq('uuid', uuid);
+        if(error) throw error;
+        done++;
+        statusUpdate(done, uuids.length, 'Actualizando documentos… ('+done+'/'+uuids.length+')');
+      }
+      statusHide();
+      toast(uuids.length+' documento(s) actualizado(s).');
+      state.selectedDocs.clear();
+      loadDocumentos();
+    }catch(e){
+      statusHide(0);
+      toast('No se pudo completar la actualización: '+(e&&e.message||''), true);
+    }finally{
+      saveBtn.disabled=false; saveBtn.textContent='Guardar';
+    }
+  };
+  showDrawer();
+}
+
+function openDocDrawer(d){
+  document.getElementById('drawerTitle').textContent = 'Editar documento';
+  const body = document.getElementById('drawerBody');
+  body.innerHTML='';
+  body.appendChild(el(`<div class="field"><label>UUID</label><input class="mono" value="${esc(d.uuid)}" disabled></div>`));
+
+  const fRel = el(`<div class="field"><label>Relación</label>
+    <select><option value="Sin clasificar">Sin clasificar</option><option value="Por cobrar">Por cobrar</option><option value="Por pagar">Por pagar</option></select></div>`);
+  fRel.querySelector('select').value = d.tipoRelacion || 'Sin clasificar';
+  body.appendChild(fRel);
+
+  const row = el(`<div class="field-2col"></div>`);
+  const fRfc = el(`<div class="field"><label>RFC contraparte</label><input class="mono"></div>`);
+  fRfc.querySelector('input').value = d.rfc||'';
+  const fNom = el(`<div class="field"><label>Nombre contraparte</label><input></div>`);
+  fNom.querySelector('input').value = d.nombre||'';
+  row.appendChild(fRfc); row.appendChild(fNom);
+  body.appendChild(row);
+
+  const fOC = el(`<div class="field"><label>Orden de compra</label><input></div>`);
+  fOC.querySelector('input').value = d.ordenCompra||'';
+  body.appendChild(fOC);
+
+  const fIngreso = el(`<div class="field"><label>Fecha de ingreso de la factura</label><input type="date"></div>`);
+  fIngreso.querySelector('input').value = d.fechaIngreso || todayISO();
+  body.appendChild(fIngreso);
+
+  body.appendChild(el(`<div class="hint">La fecha de vencimiento se recalcula al guardar, usando los días de crédito del proveedor o cliente que coincida con el RFC.</div>`));
+
+  document.getElementById('drawerSave').onclick = async ()=>{
+    const tipoRelacion = fRel.querySelector('select').value;
+    const rfc = fRfc.querySelector('input').value.trim().toUpperCase();
+    const nombre = fNom.querySelector('input').value.trim();
+    const ordenCompra = fOC.querySelector('input').value.trim();
+    const fechaIngreso = fIngreso.querySelector('input').value || todayISO();
+    const dias = lookupDiasCredito(tipoRelacion, rfc);
+    const fechaVencimiento = dias!=null ? addDaysISO(fechaIngreso, dias) : fechaIngreso;
+    const saveBtn = document.getElementById('drawerSave');
+    saveBtn.disabled=true; saveBtn.textContent='Guardando…';
+    try{
+      const {error} = await sb.from('documentos').update({
+        tipo_relacion: tipoRelacion, rfc, nombre, orden_compra: ordenCompra, fecha_ingreso: fechaIngreso, fecha_vencimiento: fechaVencimiento,
+        dias_credito: dias!=null? dias : (d.diasCredito||0)
+      }).eq('uuid', d.uuid);
+      if(error) throw error;
+      toast('Documento actualizado.');
+      closeDrawer();
+      loadDocumentos();
+    }catch(e){
+      toast('No se pudo guardar: '+(e&&e.message||''), true);
+    }finally{
+      saveBtn.disabled=false; saveBtn.textContent='Guardar';
+    }
+  };
+  showDrawer();
+}
+
+function lookupDiasCredito(tipoRelacion, rfc){
+  if(!rfc) return null;
+  if(tipoRelacion==='Por pagar'){
+    const p = state.data.proveedores.find(x=>String(x.rfc||'').toUpperCase()===rfc);
+    return p ? Number(p.diasCredito)||0 : null;
+  }
+  if(tipoRelacion==='Por cobrar'){
+    const c = state.data.clientes.find(x=>String(x.rfc||'').toUpperCase()===rfc);
+    return c ? Number(c.diasCredito)||0 : null;
+  }
+  return null;
+}
+
+/* =========================================================
+   XML PARSING + IMPORT
+========================================================= */
+function findByLocalName(root, localName){
+  const all = root.getElementsByTagName('*');
+  for(let i=0;i<all.length;i++){ if(all[i].localName === localName) return all[i]; }
+  return null;
+}
+function attr(elm, name){ return elm ? (elm.getAttribute(name)||'').trim() : ''; }
+
+function parseCfdiText(xmlText){
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+  if(xmlDoc.getElementsByTagName('parsererror').length){ throw new Error('XML inválido o mal formado.'); }
+  const comprobante = findByLocalName(xmlDoc, 'Comprobante') || xmlDoc.documentElement;
+  const emisor = findByLocalName(xmlDoc, 'Emisor');
+  const receptor = findByLocalName(xmlDoc, 'Receptor');
+  const timbre = findByLocalName(xmlDoc, 'TimbreFiscalDigital');
+  const uuid = attr(timbre, 'UUID');
+  if(!uuid) throw new Error('No se encontró un UUID (timbre fiscal) en el XML.');
+  return {
+    uuid, tipo: attr(comprobante,'TipoDeComprobante'), fecha: attr(comprobante,'Fecha'),
+    metodoPago: attr(comprobante,'MetodoPago'), formaPago: attr(comprobante,'FormaPago'),
+    serie: attr(comprobante,'Serie'), folio: attr(comprobante,'Folio'), total: attr(comprobante,'Total'),
+    usoCFDI: attr(receptor,'UsoCFDI'), lugarExpedicion: attr(comprobante,'LugarExpedicion'),
+    emisorRfc: attr(emisor,'Rfc').toUpperCase(), emisorNombre: attr(emisor,'Nombre'),
+    emisorRegimen: attr(emisor,'RegimenFiscal'),
+    receptorRfc: attr(receptor,'Rfc').toUpperCase(), receptorNombre: attr(receptor,'Nombre'),
+    receptorRegimen: attr(receptor,'RegimenFiscalReceptor'), receptorCp: attr(receptor,'DomicilioFiscalReceptor'),
+  };
+}
+function readFileAsText(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result);
+    r.onerror = ()=>reject(new Error('No se pudo leer '+file.name));
+    r.readAsText(file);
+  });
+}
+async function findOrCreateProveedor(parsed){
+  const rfc = parsed.emisorRfc;
+  let p = state.data.proveedores.find(x=>String(x.rfc||'').toUpperCase()===rfc);
+  if(p) return {record:p, created:false};
+  if(!canEdit('proveedores')) return {record:null, created:false, noPermiso:true};
+  const row = camelToRow({
+    nombre: parsed.emisorNombre||rfc, rfc, cp: parsed.lugarExpedicion||'', diasCredito:0, direccion:'',
+    regimenFiscal: parsed.emisorRegimen||'', banco:'', numCuenta:'', clabe:'',
+    productos:'', email:'', telefono:'', contacto:''
+  }, CATALOGS.proveedores.fields);
+  const {data, error} = await sb.from('proveedores').insert(row).select().single();
+  if(error) throw error;
+  const nuevo = rowToCamel(data, CATALOGS.proveedores.fields);
+  state.data.proveedores.push(nuevo);
+  return {record:nuevo, created:true};
+}
+async function findOrCreateCliente(parsed){
+  const rfc = parsed.receptorRfc;
+  let c = state.data.clientes.find(x=>String(x.rfc||'').toUpperCase()===rfc);
+  if(c) return {record:c, created:false};
+  if(!canEdit('clientes')) return {record:null, created:false, noPermiso:true};
+  const row = camelToRow({
+    nombre: parsed.receptorNombre||rfc, rfc, cp: parsed.receptorCp||'', diasCredito:0, direccion:'',
+    regimenFiscal: parsed.receptorRegimen||'', usoFiscal: parsed.usoCFDI||'', banco:'', numCuenta:'', clabe:'',
+    productos:'', email:'', telefono:'', contacto:''
+  }, CATALOGS.clientes.fields);
+  const {data, error} = await sb.from('clientes').insert(row).select().single();
+  if(error) throw error;
+  const nuevo = rowToCamel(data, CATALOGS.clientes.fields);
+  state.data.clientes.push(nuevo);
+  return {record:nuevo, created:true};
+}
+
+async function backfillCpIfMissing(catalogKey, rfc, cp){
+  if(!cp || !rfc) return false;
+  const cfg = CATALOGS[catalogKey];
+  const rec = state.data[catalogKey].find(x=>String(x.rfc||'').toUpperCase()===rfc);
+  if(!rec || rec.cp) return false;
+  if(!canEdit(catalogKey)) return false;
+  try{
+    const {error} = await sb.from(cfg.table).update({cp}).eq('id', rec.id);
+    if(error) throw error;
+    rec.cp = cp;
+    return true;
+  }catch(e){ return false; }
+}
+
+async function handleXmlFiles(fileList, summaryEl){
+  const files = Array.from(fileList||[]);
+  if(files.length===0) return;
+  summaryEl.textContent = 'Procesando '+files.length+' archivo(s)…';
+  statusShow('Procesando XML… (0/'+files.length+')');
+  let ok=0, dup=0, err=0, nuevosProv=0, nuevosCli=0, sinPermiso=0, cpCompletados=0;
+  const errDetails = [];
+  const dupDetails = [];
+  const rfcEmpresa = state.config.rfcEmpresa;
+  let procesados = 0;
+
+  for(const file of files){
+    try{
+      const text = await readFileAsText(file);
+      const parsed = parseCfdiText(text);
+      const {data: existing} = await sb.from('documentos').select('uuid').eq('uuid', parsed.uuid).maybeSingle();
+      if(existing){
+        dup++;
+        dupDetails.push(file.name+' — '+(parsed.serie||'')+(parsed.serie?'-':'')+(parsed.folio||'')+' (UUID '+parsed.uuid+')');
+        // Aunque el documento ya existe, aprovechamos para completar el CP del catálogo si le faltaba
+        if(rfcEmpresa && parsed.emisorRfc===rfcEmpresa){
+          if(await backfillCpIfMissing('clientes', parsed.receptorRfc, parsed.receptorCp)) cpCompletados++;
+        }else if(rfcEmpresa && parsed.receptorRfc===rfcEmpresa){
+          if(await backfillCpIfMissing('proveedores', parsed.emisorRfc, parsed.lugarExpedicion)) cpCompletados++;
+        }
+        continue;
+      }
+
+      let tipoRelacion='Sin clasificar', rfc=parsed.emisorRfc, nombre=parsed.emisorNombre, dias=0;
+
+      if(rfcEmpresa && parsed.emisorRfc===rfcEmpresa){
+        // Nosotros emitimos -> el receptor es un cliente (cuenta por cobrar)
+        tipoRelacion='Por cobrar'; rfc=parsed.receptorRfc; nombre=parsed.receptorNombre;
+        const r = await findOrCreateCliente(parsed);
+        if(r.created) nuevosCli++;
+        if(r.noPermiso) sinPermiso++;
+        if(r.record) dias = Number(r.record.diasCredito)||0;
+        if(!r.created && await backfillCpIfMissing('clientes', parsed.receptorRfc, parsed.receptorCp)) cpCompletados++;
+      }else if(rfcEmpresa && parsed.receptorRfc===rfcEmpresa){
+        // Nosotros recibimos -> el emisor es un proveedor (cuenta por pagar)
+        tipoRelacion='Por pagar'; rfc=parsed.emisorRfc; nombre=parsed.emisorNombre;
+        const r = await findOrCreateProveedor(parsed);
+        if(r.created) nuevosProv++;
+        if(r.noPermiso) sinPermiso++;
+        if(r.record) dias = Number(r.record.diasCredito)||0;
+        if(!r.created && await backfillCpIfMissing('proveedores', parsed.emisorRfc, parsed.lugarExpedicion)) cpCompletados++;
+      }else{
+        // Sin RFC de empresa configurado (o no coincide con ninguna parte): heurística por catálogos existentes
+        const prov = state.data.proveedores.find(p=>String(p.rfc||'').toUpperCase()===parsed.emisorRfc);
+        const cli = state.data.clientes.find(c=>String(c.rfc||'').toUpperCase()===parsed.receptorRfc);
+        if(prov){ tipoRelacion='Por pagar'; rfc=parsed.emisorRfc; nombre=parsed.emisorNombre; dias=Number(prov.diasCredito)||0; }
+        else if(cli){ tipoRelacion='Por cobrar'; rfc=parsed.receptorRfc; nombre=parsed.receptorNombre; dias=Number(cli.diasCredito)||0; }
+      }
+
+      const fechaIngreso = todayISO();
+      const fechaVencimiento = addDaysISO(fechaIngreso, dias);
+      const insertRow = docCamelToRow({
+        uuid: parsed.uuid, tipo: parsed.tipo, fecha: parsed.fecha, metodoPago: parsed.metodoPago,
+        formaPago: parsed.formaPago, serie: parsed.serie, folio: parsed.folio, usoCFDI: parsed.usoCFDI,
+        total: parsed.total===''?null:Number(parsed.total), fechaIngreso, fechaVencimiento,
+        diasCredito: dias, rfc, nombre, tipoRelacion, estado:'Pendiente', ordenCompra:''
+      });
+      const {error} = await sb.from('documentos').insert(insertRow);
+      if(error){
+        if(error.code==='23505'){ dup++; dupDetails.push(file.name+' — '+(parsed.serie||'')+(parsed.serie?'-':'')+(parsed.folio||'')+' (UUID '+parsed.uuid+')'); continue; }
+        throw error;
+      }
+      ok++;
+    }catch(e){ err++; errDetails.push(file.name+': '+(e&&e.message||'error')); }
+    procesados++;
+    statusUpdate(procesados, files.length, 'Procesando XML… ('+procesados+'/'+files.length+')');
+    if(procesados % 15 === 0) summaryEl.textContent = 'Procesando… ('+procesados+'/'+files.length+')';
+  }
+  statusHide();
+
+  let msg = ok+' importado(s)';
+  if(nuevosProv) msg += ', '+nuevosProv+' proveedor(es) nuevo(s) creado(s)';
+  if(nuevosCli) msg += ', '+nuevosCli+' cliente(s) nuevo(s) creado(s)';
+  if(cpCompletados) msg += ', '+cpCompletados+' código(s) postal(es) completado(s) en catálogos existentes';
+  if(dup) msg += ', '+dup+' duplicado(s) omitido(s)';
+  if(sinPermiso) msg += ', '+sinPermiso+' sin permiso para crear catálogo';
+  if(err) msg += ', '+err+' con error';
+  let detailsHtml = '';
+  if(dupDetails.length){
+    detailsHtml += `<details style="margin-top:8px;" open><summary style="cursor:pointer; color:var(--warn-text);">${dupDetails.length} documento(s) descartado(s) por estar duplicado(s) — ver listado</summary>`
+      + `<div style="max-height:160px; overflow:auto; margin-top:6px; padding-left:4px;">${dupDetails.map(esc).join('<br>')}</div></details>`;
+  }
+  if(errDetails.length){
+    detailsHtml += `<details style="margin-top:8px;"><summary style="cursor:pointer; color:var(--danger);">${errDetails.length} archivo(s) con error — ver listado</summary>`
+      + `<div style="max-height:160px; overflow:auto; margin-top:6px; padding-left:4px;">${errDetails.map(esc).join('<br>')}</div></details>`;
+  }
+  summaryEl.innerHTML = `<b>${msg}.</b>` + detailsHtml
+    + (cpCompletados ? '<br><span style="color:var(--accent);">Se completó el código postal de '+cpCompletados+' registro(s) que no lo tenían.</span>' : '')
+    + (!rfcEmpresa ? '<br><span style="color:var(--warn-text)">Configura el RFC de tu empresa (menú Configuración) para que los proveedores y clientes se creen automáticamente.</span>' : '');
+  if(ok>0){ toast(ok+' documento(s) importado(s) correctamente.'); loadDocumentos(); }
+  if(dup>0){ toast(dup+' documento(s) duplicado(s) fueron descartados (ya existían).'); }
+  if(nuevosProv || nuevosCli){ loadCatalog('proveedores'); loadCatalog('clientes'); }
+  if(err>0) toast(err+' archivo(s) no se pudieron procesar.', true);
+}
+
+/* =========================================================
+   USUARIOS Y PERMISOS (solo admin)
+========================================================= */
+function renderUsuarios(){
+  const wrap = el('<div></div>');
+  wrap.appendChild(el(`
+    <div class="topbar">
+      <div><h1>Usuarios y permisos</h1><p>Como administrador ves y editas toda la información. Aquí decides qué puede ver y editar cada usuario en cada catálogo.</p></div>
+      <div class="topbar-actions"><button class="btn" id="btnRefreshUsers">${ICONS.refresh} Actualizar</button></div>
+    </div>
+  `));
+  wrap.querySelector('#btnRefreshUsers').addEventListener('click', async ()=>{ await loadProfileAndPermisos(); render(); });
+
+  const tw = el(`<div class="table-wrap"><div class="table-scroll" style="padding:16px;"></div></div>`);
+  const scroll = tw.querySelector('.table-scroll');
+
+  if(state.allProfiles.length===0){
+    scroll.appendChild(el(`<div class="empty-row" style="padding:20px;">No hay usuarios registrados todavía.</div>`));
+  }
+
+  state.allProfiles.forEach(p=>{
+    const permMap = {};
+    state.allPermisos.filter(x=>x.user_id===p.id).forEach(x=>{ permMap[x.catalogo]={can_view:x.can_view, can_edit:x.can_edit}; });
+
+    const card = el(`
+      <div style="border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+          <div><b style="font-size:13.5px;">${esc(p.email||p.id)}</b></div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="chip ${p.role==='admin'?'chip-admin':'chip-usuario'}">${p.role==='admin'?'Administrador':'Usuario'}</span>
+            ${p.id!==state.session.user.id ? `<button class="btn btn-ghost btn-role" style="padding:4px 8px; font-size:12px;">${p.role==='admin'?'Quitar admin':'Hacer admin'}</button>` : ''}
+          </div>
+        </div>
+        <div class="perm-grid" style="${p.role==='admin'?'opacity:.45;':''}">
+          <div class="hcell" style="text-align:left;">Catálogo</div>
+          <div class="hcell">Ver</div>
+          <div class="hcell">Editar</div>
+          <div class="hcell"></div>
+          <div class="hcell"></div>
+        </div>
+      </div>
+    `);
+    const grid = card.querySelector('.perm-grid');
+    ['proveedores','clientes','bancos','documentos'].forEach(cat=>{
+      const cv = permMap[cat]?permMap[cat].can_view:false;
+      const ce = permMap[cat]?permMap[cat].can_edit:false;
+      const rowEl = el(`
+        <div style="display:contents;">
+          <div>${CATALOG_LABELS[cat]}</div>
+          <label class="perm-check"><input type="checkbox" data-cat="${cat}" data-kind="view" ${cv?'checked':''} ${p.role==='admin'?'disabled':''}></label>
+          <label class="perm-check"><input type="checkbox" data-cat="${cat}" data-kind="edit" ${ce?'checked':''} ${p.role==='admin'?'disabled':''}></label>
+          <div></div><div></div>
+        </div>
+      `);
+      grid.appendChild(rowEl);
+    });
+    if(p.role!=='admin'){
+      const saveBtn = el(`<button class="btn btn-primary" style="margin-top:10px;">Guardar permisos</button>`);
+      saveBtn.addEventListener('click', async ()=>{
+        saveBtn.disabled=true; saveBtn.textContent='Guardando…';
+        try{
+          const checks = grid.querySelectorAll('input[type=checkbox]');
+          const byCat = {};
+          checks.forEach(chk=>{
+            const cat = chk.getAttribute('data-cat'); const kind = chk.getAttribute('data-kind');
+            byCat[cat] = byCat[cat]||{can_view:false, can_edit:false};
+            byCat[cat][kind==='view'?'can_view':'can_edit'] = chk.checked;
+          });
+          for(const cat of Object.keys(byCat)){
+            const v = byCat[cat];
+            if(v.can_edit) v.can_view = true; // editar implica ver
+            const {error} = await sb.from('permisos').upsert({user_id:p.id, catalogo:cat, can_view:v.can_view, can_edit:v.can_edit}, {onConflict:'user_id,catalogo'});
+            if(error) throw error;
+          }
+          toast('Permisos actualizados para '+(p.email||p.id)+'.');
+          await loadProfileAndPermisos();
+        }catch(e){ toast('No se pudo guardar: '+(e&&e.message||''), true); }
+        finally{ saveBtn.disabled=false; saveBtn.textContent='Guardar permisos'; }
+      });
+      card.appendChild(saveBtn);
+    }
+    const roleBtn = card.querySelector('.btn-role');
+    if(roleBtn){
+      roleBtn.addEventListener('click', async ()=>{
+        const newRole = p.role==='admin' ? 'usuario' : 'admin';
+        if(!window.confirm(`¿${newRole==='admin'?'Convertir en administrador':'Quitar privilegios de administrador'} a ${p.email}?`)) return;
+        try{
+          const {error} = await sb.from('profiles').update({role:newRole}).eq('id', p.id);
+          if(error) throw error;
+          toast('Rol actualizado.');
+          await loadProfileAndPermisos();
+          render();
+        }catch(e){ toast('No se pudo actualizar el rol: '+(e&&e.message||''), true); }
+      });
+    }
+    scroll.appendChild(card);
+  });
+
+  wrap.appendChild(tw);
+  return wrap;
+}
+
+/* =========================================================
+   CONFIGURACIÓN (RFC de la empresa, solo admin)
+========================================================= */
+function renderConfiguracion(){
+  const wrap = el('<div></div>');
+  wrap.appendChild(el(`
+    <div class="topbar">
+      <div><h1>Configuración</h1><p>El RFC de tu empresa permite que, al cargar un XML, el sistema sepa si tú eres quien emite o quien recibe la factura — y así clasificarla y crear el proveedor o cliente automáticamente si todavía no existe en tus catálogos.</p></div>
+    </div>
+  `));
+
+  const card = el(`<div class="table-wrap" style="padding:20px; max-width:520px;"></div>`);
+  const f1 = el(`<div class="field"><label>RFC de tu empresa</label><input class="mono" placeholder="Ej. ABC010203XYZ"></div>`);
+  f1.querySelector('input').value = state.config.rfcEmpresa || '';
+  const f2 = el(`<div class="field"><label>Razón social (opcional, solo de referencia)</label><input></div>`);
+  f2.querySelector('input').value = state.config.razonSocial || '';
+  card.appendChild(f1); card.appendChild(f2);
+  const saveBtn = el(`<button class="btn btn-primary">Guardar configuración</button>`);
+  saveBtn.addEventListener('click', async ()=>{
+    const rfc = f1.querySelector('input').value.trim().toUpperCase();
+    const razon = f2.querySelector('input').value.trim();
+    saveBtn.disabled=true; saveBtn.textContent='Guardando…';
+    try{
+      const {error} = await sb.from('configuracion').update({rfc_empresa:rfc, razon_social:razon}).eq('id',1);
+      if(error) throw error;
+      await loadConfig();
+      toast('Configuración guardada.');
+    }catch(e){ toast('No se pudo guardar: '+(e&&e.message||''), true); }
+    finally{ saveBtn.disabled=false; saveBtn.textContent='Guardar configuración'; }
+  });
+  card.appendChild(saveBtn);
+  card.appendChild(el(`<div class="hint" style="margin-top:12px;">Sin este dato, el sistema solo puede clasificar un documento si el RFC de una de las dos partes ya existe manualmente en el catálogo de Proveedores o Clientes, y no podrá crear registros nuevos automáticamente.</div>`));
+  wrap.appendChild(card);
+  return wrap;
+}
+
+})();
+</script>
+</body>
+</html>
